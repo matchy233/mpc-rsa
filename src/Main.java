@@ -4,7 +4,7 @@ public class Main {
     * Implement the main loop of the program.
     * Basic structures:
     *   determine manager/worker role
-    *       if role:
+    *       if worker:
     *           wait for manager call to form cluster
     *       if manager:
     *           input all worker's address & port
