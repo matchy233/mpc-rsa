@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "mpc.project";
+
+service ExampleService {
+  rpc exampleCall(ExampleRequest) returns (ExampleResponse) {}
+}
+
+message ExampleRequest {
+  string text = 1;
+}
+
+message ExampleResponse {
+  string text = 1;
+}
