@@ -11,6 +11,7 @@ import java.util.Scanner;
 
 public class ManagerMain {
     final int clusterMaxSize = 48;
+    final int clusterMinSize = 3;
     final int keyBitLength = 1024;
     private Random rnd;
     private Server server;
@@ -48,7 +49,14 @@ public class ManagerMain {
         for(int i = 1; i < clusterMaxSize; i++){
             String inLine = input.nextLine();
             if(inLine.equals("end")){
-                break;
+                if(stubs.size() >= clusterMinSize){
+                    break;
+                }else{
+                    System.out.println("Too few workers to form a cluster");
+                    System.out.println("Current number of workers: "+stubs.size());
+                    System.out.println("Minimum number of workers: "+clusterMinSize);
+                    i--; continue;
+                }
             }
             if(!formCluster(inLine, i)){
                 i--;
