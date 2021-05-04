@@ -3,14 +3,24 @@ syntax = "proto3";
 option java_multiple_files = true;
 option java_package = "mpc.project";
 
-service ExampleService {
-  rpc exampleCall(ExampleRequest) returns (ExampleResponse) {}
+// this service is for the worker server
+// add more rpc methods and request/response types if needed
+service WorkerService {
+  rpc formCluster(StdRequest) returns (StdResponse) {}
 }
 
-message ExampleRequest {
-  string text = 1;
+// this service is for the manager server
+// add more rpc methods and request/response types if needed
+service ManagerService{
+
 }
 
-message ExampleResponse {
-  string text = 1;
+message StdRequest {
+  int32 id = 1;       // for specifying the sender's id
+                      // in formCluster, it marks the receiving worker's id
+  bytes contents = 2; // for containing the information, usually a BigNumber
+}
+
+message StdResponse {
+  int32 id = 1;      // for specifying the responser's id
 }
