@@ -1,8 +1,22 @@
+import java.math.BigInteger;
+
 public class Key {
     /**
      * ToDo:
      * implement key generation methods
      */
+    /* For Test */
+    public BigInteger N;
+    public BigInteger d;
+    public BigInteger e;
+
+    /* For Test */
+    public Key(int N, int d, int e) {
+        this.N = BigInteger.valueOf(N);
+        this.d = BigInteger.valueOf(d);
+        this.e = BigInteger.valueOf(e);
+    }
+
     public static Key[] generateKeyPair(){
         /*
         * Return the generated public key and private key
