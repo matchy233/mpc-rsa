@@ -6,13 +6,15 @@ option java_package = "mpc.project";
 // this service is for the worker server
 // add more rpc methods and request/response types if needed
 service WorkerService {
+  rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
+  rpc formNetwork(StdRequest) returns (StdResponse) {}
 }
 
 // this service is for the manager server
 // add more rpc methods and request/response types if needed
 service ManagerService{
-
+  rpc greeting(StdRequest) returns (StdResponse) {}
 }
 
 message StdRequest {
