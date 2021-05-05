@@ -27,20 +27,42 @@ public class ManagerMain {
         public void greeting(StdRequest req, StreamObserver<StdResponse> resObserver) {
             int id = req.getId();
             System.out.println("receive greeting from worker " + id);
-            StdResponse res = StdResponse.newBuilder().setId(0).build();
+            StdResponse res = newRes();
             resObserver.onNext(res);
             resObserver.onCompleted();
         }
+    }
+
+    private StdRequest newReq(int id, BigInteger bigInt) {
+        StdRequest result = StdRequest.newBuilder()
+                .setId(id).setContents(ByteString.copyFrom(
+                        bigInt.toByteArray()
+                )).build();
+        return result;
+    }
+
+    private StdRequest newReq(int id, String s){
+        StdRequest result = StdRequest.newBuilder()
+                .setId(id).setContents(ByteString.copyFrom(
+                        s.getBytes()
+                )).build();
+        return result;
+    }
+
+    private StdRequest newReq(int id){
+        return StdRequest.newBuilder().setId(id).build();
+    }
+
+    private StdResponse newRes(){
+        StdResponse result = StdResponse.newBuilder().setId(id).build();
+        return result;
     }
 
     private boolean formCluster(String target, int workerId) {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
-        StdRequest req = StdRequest.newBuilder()
-                .setId(workerId)
-                .setContents(ByteString.copyFrom(P.toByteArray()))
-                .build();
+        StdRequest req = newReq(workerId, P);
         StdResponse res;
         try {
             res = testStub.formCluster(req);
@@ -61,8 +83,7 @@ public class ManagerMain {
         }
         String midString = midStringBuilder.toString();
         for (int i = 0; i < addressBook.size(); i++) {
-            StdRequest req = StdRequest.newBuilder()
-                    .setId(i + 1).setContents(ByteString.copyFrom(midString.getBytes())).build();
+            StdRequest req = newReq(i+1, midString);
             stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>() {
                 @Override
                 public void onNext(StdResponse res) {
