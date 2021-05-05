@@ -144,5 +144,34 @@ public class TempWorkerMain {
     }
 
     private void genN() {
+        double[] values = computeValuesOfLagrangianPolynomialsAtZero();
+        BigDecimal N = new BigDecimal(0);
+        for (int i = 0; i < nPieceArr.length; i++) {
+            BigDecimal Ni = new BigDecimal(nPieceArr[i]);
+            N = N.add(Ni.multiply(BigDecimal.valueOf(values[i])));
+        }
+        this.N = N.toBigInteger();
+    }
+
+    private double[] computeValuesOfLagrangianPolynomialsAtZero() {
+        int len = nPieceArr.length;
+        double[] results = new double[len];
+
+        for (int i = 0; i < len; i++) {
+            int xi = i + 1;
+            int numerator = 1;
+            int denominator = 1;
+            for (int j = 0; j < i; j++) {
+                numerator *= -(j + 1);
+                denominator *= (xi - (j + 1));
+            }
+            for (int j = i + 1; j < len; j++) {
+                numerator *= -(j + 1);
+                denominator *= (xi - (j + 1));
+            }
+            results[i] = (double)numerator / (double)denominator;
+        }
+
+        return results;
     }
 }
