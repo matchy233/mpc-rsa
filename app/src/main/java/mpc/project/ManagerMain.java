@@ -21,17 +21,19 @@ public class ManagerMain {
     private BigInteger P;
     private ArrayList<WorkerServiceGrpc.WorkerServiceStub> stubs;
     private ArrayList<String> addressBook;
-    class ManagerServiceImpl extends ManagerServiceGrpc.ManagerServiceImplBase{
+
+    class ManagerServiceImpl extends ManagerServiceGrpc.ManagerServiceImplBase {
         @Override
-        public void greeting(StdRequest req, StreamObserver<StdResponse> resObserver){
+        public void greeting(StdRequest req, StreamObserver<StdResponse> resObserver) {
             int id = req.getId();
-            System.out.println("receive greeting from worker "+id);
+            System.out.println("receive greeting from worker " + id);
             StdResponse res = StdResponse.newBuilder().setId(0).build();
             resObserver.onNext(res);
             resObserver.onCompleted();
         }
     }
-    private boolean formCluster(String target, int workerId){
+
+    private boolean formCluster(String target, int workerId) {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
@@ -40,10 +42,10 @@ public class ManagerMain {
                 .setContents(ByteString.copyFrom(P.toByteArray()))
                 .build();
         StdResponse res;
-        try{
+        try {
             res = testStub.formCluster(req);
-        }catch(StatusRuntimeException e){
-            System.out.println("Failed to add into cluster: "+e.getMessage());
+        } catch (StatusRuntimeException e) {
+            System.out.println("Failed to add into cluster: " + e.getMessage());
             return false;
         }
         stubs.add(WorkerServiceGrpc.newStub(channel));
@@ -51,32 +53,37 @@ public class ManagerMain {
         System.out.println(target + " is registered successfully");
         return true;
     }
-    private boolean formNetwork(){
+
+    private boolean formNetwork() {
         StringBuilder midStringBuilder = new StringBuilder();
-        for(String target : addressBook){
+        for (String target : addressBook) {
             midStringBuilder.append(target).append(";");
         }
         String midString = midStringBuilder.toString();
-        for(int i = 0; i < addressBook.size(); i++){
+        for (int i = 0; i < addressBook.size(); i++) {
             StdRequest req = StdRequest.newBuilder()
-                    .setId(i+1).setContents(ByteString.copyFrom(midString.getBytes())).build();
-            stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>(){
+                    .setId(i + 1).setContents(ByteString.copyFrom(midString.getBytes())).build();
+            stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>() {
                 @Override
-                public void onNext(StdResponse res){
-                    System.out.println("received by "+res.getId());
+                public void onNext(StdResponse res) {
+                    System.out.println("received by " + res.getId());
                 }
+
                 @Override
-                public void onError(Throwable t){
-                    System.out.println("RPC error: "+t.getMessage());
+                public void onError(Throwable t) {
+                    System.out.println("RPC error: " + t.getMessage());
                     System.exit(-1);
                 }
+
                 @Override
-                public void onCompleted(){}
+                public void onCompleted() {
+                }
             });
         }
         return true;
     }
-    public ManagerMain(int portNum){
+
+    public ManagerMain(int portNum) {
         this.portNum = portNum;
         this.rnd = new Random();
         this.P = BigInteger.probablePrime(keyBitLength, rnd);
@@ -85,26 +92,28 @@ public class ManagerMain {
         Scanner input = new Scanner(System.in);
         stubs = new ArrayList<WorkerServiceGrpc.WorkerServiceStub>();
         addressBook = new ArrayList<String>();
-        for(int i = 1; i < clusterMaxSize; i++){
+        for (int i = 1; i < clusterMaxSize; i++) {
             String inLine = input.nextLine();
-            if(inLine.equals("end")){
-                if(stubs.size() >= clusterMinSize){
+            if (inLine.equals("end")) {
+                if (stubs.size() >= clusterMinSize) {
                     break;
-                }else{
+                } else {
                     System.out.println("Too few workers to form a cluster");
-                    System.out.println("Current number of workers: "+stubs.size());
-                    System.out.println("Minimum number of workers: "+clusterMinSize);
-                    i--; continue;
+                    System.out.println("Current number of workers: " + stubs.size());
+                    System.out.println("Minimum number of workers: " + clusterMinSize);
+                    i--;
+                    continue;
                 }
             }
-            if(!formCluster(inLine, i)){
+            if (!formCluster(inLine, i)) {
                 i--;
             }
         }
         formNetwork();
         input.nextLine();
     }
-    public void run(){
+
+    public void run() {
 
     }
 }

@@ -4,48 +4,53 @@
 package mpc.project;
 
 public class App {
-    private static class UnsupportedArgException extends Exception{
+    private static class UnsupportedArgException extends Exception {
         public String content;
-        public UnsupportedArgException(String content){
+
+        public UnsupportedArgException(String content) {
             this.content = content;
         }
     }
-    private static void printHelpMsg(){
+
+    private static void printHelpMsg() {
         String helpMsg = "";
         helpMsg += "this is a dummy help msg";
         System.out.println(helpMsg);
     }
+
     private static boolean isServer(String[] args) throws UnsupportedArgException {
-        for(int i = 0; i < args.length; i++){
+        for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            if(arg.equals("-mode")){
-                if(args[i+1].equals("manager")){
+            if (arg.equals("-mode")) {
+                if (args[i + 1].equals("manager")) {
                     return true;
-                }else if(args[i+1].equals("worker")){
+                } else if (args[i + 1].equals("worker")) {
                     return false;
-                }else{
+                } else {
                     throw new UnsupportedArgException("unsupported mode!");
                 }
             }
         }
         return false;
     }
+
     static boolean managerMode = false;
     static int portNum = 50083;
-    private static void parseArguments(String[] args) throws UnsupportedArgException{
-        for(int i = 0; i < args.length; i++){
-            if(args[i].equals("--mode") || args[i].equals("-m")){
-                if(args[i+1].equals("manager")){
+
+    private static void parseArguments(String[] args) throws UnsupportedArgException {
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--mode") || args[i].equals("-m")) {
+                if (args[i + 1].equals("manager")) {
                     managerMode = true;
-                }else if(args[i+1].equals("worker")){
+                } else if (args[i + 1].equals("worker")) {
                     managerMode = false;
-                }else{
+                } else {
                     throw new UnsupportedArgException("unsupported mode");
                 }
-            }else if(args[i].equals("--port") || args[i].equals("-p")){
-                try{
-                    portNum = Integer.parseInt(args[i+1]);
-                }catch (NumberFormatException e){
+            } else if (args[i].equals("--port") || args[i].equals("-p")) {
+                try {
+                    portNum = Integer.parseInt(args[i + 1]);
+                } catch (NumberFormatException e) {
                     throw new UnsupportedArgException("unsupported port number");
                 }
             }
@@ -53,20 +58,20 @@ public class App {
     }
 
     public static void main(String[] args) {
-        if(args.length <= 0){
+        if (args.length <= 0) {
             printHelpMsg();
             return;
         }
-        try{
+        try {
             parseArguments(args);
-        }catch (UnsupportedArgException e){
-            System.out.println("Unsupported Argument: "+e.content);
+        } catch (UnsupportedArgException e) {
+            System.out.println("Unsupported Argument: " + e.content);
             return;
         }
-        if(managerMode){
+        if (managerMode) {
             ManagerMain managerMain = new ManagerMain(portNum);
             managerMain.run();
-        }else{
+        } else {
             WorkerMain workerMain = new WorkerMain(portNum);
             workerMain.run();
         }
