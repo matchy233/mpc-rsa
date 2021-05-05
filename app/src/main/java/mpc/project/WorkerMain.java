@@ -1,12 +1,12 @@
 package mpc.project;
 
-import com.google.protobuf.ByteString;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Random;
+
+import mpc.project.util.RpcUtility;
 
 public class WorkerMain {
     private Server server;
@@ -19,23 +19,21 @@ public class WorkerMain {
     private ManagerServiceGrpc.ManagerServiceBlockingStub managerStub;
 
     class WorkerServiceImpl extends WorkerServiceGrpc.WorkerServiceImplBase {
-
-
         @Override
-        public void formCluster(StdRequest req, StreamObserver<StdResponse> resObserver) {
+        public void formCluster(StdRequest req, StreamObserver<StdResponse> responseObserver) {
             id = req.getId();
             P = new BigInteger(req.getContents().toByteArray());
-            StdResponse res = newRes();
-            resObserver.onNext(res);
-            resObserver.onCompleted();
+            StdResponse res = RpcUtility.newResponse(id);
+            responseObserver.onNext(res);
+            responseObserver.onCompleted();
             System.out.println("connected to Manager");
         }
 
         @Override
-        public void formNetwork(StdRequest req, StreamObserver<StdResponse> resObserver) {
+        public void formNetwork(StdRequest req, StreamObserver<StdResponse> responseObserver) {
             String midString = new String(req.getContents().toByteArray());
             addressBook = midString.split(";");
-            StdResponse res = newRes();
+            StdResponse response = RpcUtility.newResponse(id);
             stubs = new WorkerServiceGrpc.WorkerServiceStub[addressBook.length];
             System.out.println("received and parsed addressBook: ");
             for (int i = 0; i < addressBook.length; i++) {
@@ -43,47 +41,22 @@ public class WorkerMain {
                 Channel channel = ManagedChannelBuilder.forTarget(addressBook[i]).usePlaintext().build();
                 stubs[i] = WorkerServiceGrpc.newStub(channel);
             }
-            resObserver.onNext(res);
-            resObserver.onCompleted();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
         }
 
         @Override
-        public void registerManager(StdRequest req, StreamObserver<StdResponse> resObserver) {
+        public void registerManager(StdRequest req, StreamObserver<StdResponse> responseObserver) {
             id = req.getId();
             String managerUri = new String(req.getContents().toByteArray());
             Channel channel = ManagedChannelBuilder.forTarget(managerUri).usePlaintext().build();
             managerStub = ManagerServiceGrpc.newBlockingStub(channel);
-            StdRequest greetingReq = newReq();
+            StdRequest greetingReq = RpcUtility.newRequest(id);
             managerStub.greeting(greetingReq);
-            resObserver.onNext(newRes());
-            resObserver.onCompleted();
-            System.out.println("registered manager at "+managerUri);
+            responseObserver.onNext(RpcUtility.newResponse(id));
+            responseObserver.onCompleted();
+            System.out.println("registered manager at " + managerUri);
         }
-    }
-
-    private StdRequest newReq(BigInteger bigInt) {
-        StdRequest result = StdRequest.newBuilder()
-                .setId(id).setContents(ByteString.copyFrom(
-                        bigInt.toByteArray()
-                )).build();
-        return result;
-    }
-
-    private StdRequest newReq(String s) {
-        StdRequest result = StdRequest.newBuilder()
-                .setId(id).setContents(ByteString.copyFrom(
-                        s.getBytes()
-                )).build();
-        return result;
-    }
-
-    private StdRequest newReq() {
-        return StdRequest.newBuilder().setId(id).build();
-    }
-
-    private StdResponse newRes() {
-        StdResponse result = StdResponse.newBuilder().setId(id).build();
-        return result;
     }
 
     public WorkerMain(int portNum) {

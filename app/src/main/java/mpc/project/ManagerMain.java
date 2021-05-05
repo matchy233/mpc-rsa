@@ -1,6 +1,5 @@
 package mpc.project;
 
-import com.google.protobuf.ByteString;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 
@@ -8,6 +7,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
+
+import mpc.project.util.RpcUtility;
 
 public class ManagerMain {
     final int clusterMaxSize = 48;
@@ -25,49 +26,24 @@ public class ManagerMain {
 
     class ManagerServiceImpl extends ManagerServiceGrpc.ManagerServiceImplBase {
         @Override
-        public void greeting(StdRequest req, StreamObserver<StdResponse> resObserver) {
-            int id = req.getId();
+        public void greeting(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            int id = request.getId();
             System.out.println("receive greeting from worker " + id);
-            StdResponse res = newRes();
-            resObserver.onNext(res);
-            resObserver.onCompleted();
+            StdResponse response = RpcUtility.newResponse(id);
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
         }
-    }
-
-    private StdRequest newReq(int id, BigInteger bigInt) {
-        StdRequest result = StdRequest.newBuilder()
-                .setId(id).setContents(ByteString.copyFrom(
-                        bigInt.toByteArray()
-                )).build();
-        return result;
-    }
-
-    private StdRequest newReq(int id, String s) {
-        StdRequest result = StdRequest.newBuilder()
-                .setId(id).setContents(ByteString.copyFrom(
-                        s.getBytes()
-                )).build();
-        return result;
-    }
-
-    private StdRequest newReq(int id) {
-        return StdRequest.newBuilder().setId(id).build();
-    }
-
-    private StdResponse newRes() {
-        StdResponse result = StdResponse.newBuilder().setId(id).build();
-        return result;
     }
 
     private boolean addClusterNode(String target, int workerId) {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
-        StdRequest formClusterReq = newReq(workerId, P);
-        StdRequest registerManagerReq = newReq(workerId, selfAddress);
+        StdRequest formClusterRequest = RpcUtility.newRequest(workerId, P);
+        StdRequest registerManagerRequest = RpcUtility.newRequest(workerId, selfAddress);
         try {
-            testStub.registerManager(registerManagerReq);
-            testStub.formCluster(formClusterReq);
+            testStub.registerManager(registerManagerRequest);
+            testStub.formCluster(formClusterRequest);
         } catch (StatusRuntimeException e) {
             System.out.println("Failed to add into cluster: " + e.getMessage());
             return false;
@@ -121,11 +97,11 @@ public class ManagerMain {
             formNetworkCounterWaiting = true;
             formNetworkCounter = 0;
             for (int i = 0; i < addressBook.size(); i++) {
-                StdRequest req = newReq(i + 1, midString);
-                stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>() {
+                StdRequest request = RpcUtility.newRequest(i + 1, midString);
+                stubs.get(i).formNetwork(request, new StreamObserver<StdResponse>() {
                     @Override
-                    public void onNext(StdResponse res) {
-                        System.out.println("received by " + res.getId());
+                    public void onNext(StdResponse response) {
+                        System.out.println("received by " + response.getId());
                     }
 
                     @Override
