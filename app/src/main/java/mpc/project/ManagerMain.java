@@ -3,7 +3,6 @@ package mpc.project;
 import com.google.protobuf.ByteString;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
-import org.checkerframework.checker.units.qual.A;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -14,6 +13,7 @@ public class ManagerMain {
     final int clusterMaxSize = 48;
     final int clusterMinSize = 3;
     final int keyBitLength = 1024;
+    private int clusterSize;
     private Random rnd;
     private Server server;
     private int portNum;
@@ -41,7 +41,7 @@ public class ManagerMain {
         return result;
     }
 
-    private StdRequest newReq(int id, String s){
+    private StdRequest newReq(int id, String s) {
         StdRequest result = StdRequest.newBuilder()
                 .setId(id).setContents(ByteString.copyFrom(
                         s.getBytes()
@@ -49,16 +49,16 @@ public class ManagerMain {
         return result;
     }
 
-    private StdRequest newReq(int id){
+    private StdRequest newReq(int id) {
         return StdRequest.newBuilder().setId(id).build();
     }
 
-    private StdResponse newRes(){
+    private StdResponse newRes() {
         StdResponse result = StdResponse.newBuilder().setId(id).build();
         return result;
     }
 
-    private boolean formCluster(String target, int workerId) {
+    private boolean addClusterNode(String target, int workerId) {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
@@ -76,38 +76,7 @@ public class ManagerMain {
         return true;
     }
 
-    private boolean formNetwork() {
-        StringBuilder midStringBuilder = new StringBuilder();
-        for (String target : addressBook) {
-            midStringBuilder.append(target).append(";");
-        }
-        String midString = midStringBuilder.toString();
-        for (int i = 0; i < addressBook.size(); i++) {
-            StdRequest req = newReq(i+1, midString);
-            stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>() {
-                @Override
-                public void onNext(StdResponse res) {
-                    System.out.println("received by " + res.getId());
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    System.out.println("RPC error: " + t.getMessage());
-                    System.exit(-1);
-                }
-
-                @Override
-                public void onCompleted() {
-                }
-            });
-        }
-        return true;
-    }
-
-    public ManagerMain(int portNum) {
-        this.portNum = portNum;
-        this.rnd = new Random();
-        this.P = BigInteger.probablePrime(keyBitLength, rnd);
+    private void formCluster() {
         System.out.println("please enter the address:port of all workers");
         System.out.println("one in each line, \"end\" marks the end");
         Scanner input = new Scanner(System.in);
@@ -126,12 +95,75 @@ public class ManagerMain {
                     continue;
                 }
             }
-            if (!formCluster(inLine, i)) {
+            if (!addClusterNode(inLine, i)) {
                 i--;
             }
         }
+        clusterSize = addressBook.size();
+    }
+
+    Integer formNetworkCounter = 0;
+    final Object formNetworkLock = new Object();
+    boolean formNetworkCounterWaiting;
+
+    private boolean formNetwork() {
+        StringBuilder midStringBuilder = new StringBuilder();
+        for (String target : addressBook) {
+            midStringBuilder.append(target).append(";");
+        }
+        String midString = midStringBuilder.toString();
+        synchronized (formNetworkLock) {
+            formNetworkCounterWaiting = true;
+            formNetworkCounter = 0;
+            for (int i = 0; i < addressBook.size(); i++) {
+                StdRequest req = newReq(i + 1, midString);
+                stubs.get(i).formNetwork(req, new StreamObserver<StdResponse>() {
+                    @Override
+                    public void onNext(StdResponse res) {
+                        System.out.println("received by " + res.getId());
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("RPC error: " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        if (formNetworkCounterWaiting) {
+                            synchronized (formNetworkLock) {
+                                formNetworkCounter++;
+                                if (formNetworkCounter == clusterSize) {
+                                    formNetworkLock.notify();
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            System.out.println("Waiting for network forming to complete");
+            try {
+                formNetworkLock.wait();
+
+            } catch (InterruptedException e) {
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-3);
+            }
+            formNetworkCounterWaiting = false;
+        }
+        System.out.println("Network formation successfully");
+        return true;
+    }
+
+    public ManagerMain(int portNum) {
+        this.portNum = portNum;
+        this.rnd = new Random();
+        this.P = BigInteger.probablePrime(keyBitLength, rnd);
+        formCluster();
         formNetwork();
-        input.nextLine();
+        Scanner s = new Scanner(System.in);
+        s.nextLine();
     }
 
     public void run() {

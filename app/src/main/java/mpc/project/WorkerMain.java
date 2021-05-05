@@ -36,8 +36,6 @@ public class WorkerMain {
             String midString = new String(req.getContents().toByteArray());
             addressBook = midString.split(";");
             StdResponse res = newRes();
-            resObserver.onNext(res);
-            resObserver.onCompleted();
             stubs = new WorkerServiceGrpc.WorkerServiceStub[addressBook.length];
             System.out.println("received and parsed addressBook: ");
             for (int i = 0; i < addressBook.length; i++) {
@@ -45,6 +43,8 @@ public class WorkerMain {
                 Channel channel = ManagedChannelBuilder.forTarget(addressBook[i]).usePlaintext().build();
                 stubs[i] = WorkerServiceGrpc.newStub(channel);
             }
+            resObserver.onNext(res);
+            resObserver.onCompleted();
         }
 
         @Override
@@ -56,6 +56,7 @@ public class WorkerMain {
             managerStub.greeting(greetingReq);
         }
     }
+
     private StdRequest newReq(BigInteger bigInt) {
         StdRequest result = StdRequest.newBuilder()
                 .setId(id).setContents(ByteString.copyFrom(
@@ -64,7 +65,7 @@ public class WorkerMain {
         return result;
     }
 
-    private StdRequest newReq(String s){
+    private StdRequest newReq(String s) {
         StdRequest result = StdRequest.newBuilder()
                 .setId(id).setContents(ByteString.copyFrom(
                         s.getBytes()
@@ -72,14 +73,15 @@ public class WorkerMain {
         return result;
     }
 
-    private StdRequest newReq(){
+    private StdRequest newReq() {
         return StdRequest.newBuilder().setId(id).build();
     }
 
-    private StdResponse newRes(){
+    private StdResponse newRes() {
         StdResponse result = StdResponse.newBuilder().setId(id).build();
         return result;
     }
+
     public WorkerMain(int portNum) {
         this.portNum = portNum;
         this.rnd = new Random();
