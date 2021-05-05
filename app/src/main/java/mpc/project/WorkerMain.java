@@ -49,11 +49,15 @@ public class WorkerMain {
 
         @Override
         public void registerManager(StdRequest req, StreamObserver<StdResponse> resObserver) {
+            id = req.getId();
             String managerUri = new String(req.getContents().toByteArray());
             Channel channel = ManagedChannelBuilder.forTarget(managerUri).usePlaintext().build();
             managerStub = ManagerServiceGrpc.newBlockingStub(channel);
             StdRequest greetingReq = newReq();
             managerStub.greeting(greetingReq);
+            resObserver.onNext(newRes());
+            resObserver.onCompleted();
+            System.out.println("registered manager at "+managerUri);
         }
     }
 

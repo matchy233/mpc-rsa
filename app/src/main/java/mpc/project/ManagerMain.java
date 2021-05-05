@@ -21,6 +21,7 @@ public class ManagerMain {
     private BigInteger P;
     private ArrayList<WorkerServiceGrpc.WorkerServiceStub> stubs;
     private ArrayList<String> addressBook;
+    private String selfAddress;
 
     class ManagerServiceImpl extends ManagerServiceGrpc.ManagerServiceImplBase {
         @Override
@@ -62,10 +63,11 @@ public class ManagerMain {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
-        StdRequest req = newReq(workerId, P);
-        StdResponse res;
+        StdRequest formClusterReq = newReq(workerId, P);
+        StdRequest registerManagerReq = newReq(workerId, selfAddress);
         try {
-            res = testStub.formCluster(req);
+            testStub.registerManager(registerManagerReq);
+            testStub.formCluster(formClusterReq);
         } catch (StatusRuntimeException e) {
             System.out.println("Failed to add into cluster: " + e.getMessage());
             return false;
@@ -77,9 +79,12 @@ public class ManagerMain {
     }
 
     private void formCluster() {
+        Scanner input = new Scanner(System.in);
+        System.out.println("please enter the address you want workers to use to connect to you");
+        // will not check validity, be careful
+        selfAddress = input.nextLine();
         System.out.println("please enter the address:port of all workers");
         System.out.println("one in each line, \"end\" marks the end");
-        Scanner input = new Scanner(System.in);
         stubs = new ArrayList<WorkerServiceGrpc.WorkerServiceStub>();
         addressBook = new ArrayList<String>();
         for (int i = 1; i < clusterMaxSize; i++) {
@@ -160,13 +165,21 @@ public class ManagerMain {
         this.portNum = portNum;
         this.rnd = new Random();
         this.P = BigInteger.probablePrime(keyBitLength, rnd);
+        try {
+            this.server = ServerBuilder.forPort(portNum)
+                    .addService(new ManagerServiceImpl())
+                    .build().start();
+            System.out.println("Manager server started");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            System.exit(-2);
+        }
+    }
+
+    public void run() {
         formCluster();
         formNetwork();
         Scanner s = new Scanner(System.in);
         s.nextLine();
-    }
-
-    public void run() {
-
     }
 }
