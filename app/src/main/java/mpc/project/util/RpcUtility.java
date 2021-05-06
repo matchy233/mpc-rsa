@@ -1,6 +1,7 @@
 package mpc.project.util;
 
 import com.google.protobuf.ByteString;
+import mpc.project.PrimalityTestResponse;
 import mpc.project.StdRequest;
 import mpc.project.StdResponse;
 import mpc.project.SendPrimespqhRequest;
@@ -39,7 +40,18 @@ public class RpcUtility {
     }
 
     static public StdResponse newStdResponse(int id) {
-        StdResponse result = StdResponse.newBuilder().setId(id).build();
+        return StdResponse.newBuilder().setId(id).build();
+    }
+
+    static public PrimalityTestResponse newPrimalityTestResponse(int id, BigInteger v) {
+        PrimalityTestResponse result= PrimalityTestResponse.newBuilder()
+                .setId(id)
+                .setV(ByteString.copyFrom(v.toByteArray()))
+                .build();
         return result;
+    }
+
+    static public PrimalityTestResponse newPrimalityTestResponse(int id) {
+        return PrimalityTestResponse.newBuilder().setId(id).build();
     }
 }

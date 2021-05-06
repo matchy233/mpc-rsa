@@ -201,43 +201,42 @@ public class ManagerMain {
     final Object primalityTestLock = new Object();
     boolean passPrimalityTest = false;
     boolean primalityTestWaiting = false;
-    private void primalityTest(){
+
+    private void primalityTest() {
         synchronized (primalityTestLock) {
             primalityTestWaiting = true;
             passPrimalityTest = false;
-            for (int i = 0; i < addressBook.size(); i++) {
-                StdRequest request = RpcUtility.newStdRequest(keyBitLength);
-                stubs.get(i).primalityTest(request, new StreamObserver<StdResponse>() {
-                    @Override
-                    public void onNext(StdResponse response) {
-                        System.out.println("received by " + response.getId());
-                        if(primalityTestWaiting){
-                            boolean primalityTestResult;
-                            if(response.getId()==1){
-                                primalityTestResult = true;
-                            }else if(response.getId() <= 0){
-                                primalityTestResult = false;
-                            }else{
-                                return;
-                            }
-                            synchronized (primalityTestLock){
-                                passPrimalityTest = primalityTestResult;
-                                primalityTestLock.notify();
-                            }
+            StdRequest request = RpcUtility.newStdRequest(keyBitLength);
+            stubs.get(0).primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
+                @Override
+                public void onNext(PrimalityTestResponse response) {
+                    System.out.println("received by " + response.getId());
+                    if (primalityTestWaiting) {
+                        boolean primalityTestResult;
+                        if (response.getId() == 1) {
+                            primalityTestResult = true;
+                        } else if (response.getId() <= 0) {
+                            primalityTestResult = false;
+                        } else {
+                            return;
+                        }
+                        synchronized (primalityTestLock) {
+                            passPrimalityTest = primalityTestResult;
+                            primalityTestLock.notify();
                         }
                     }
+                }
 
-                    @Override
-                    public void onError(Throwable t) {
-                        System.out.println("RPC error: " + t.getMessage());
-                        System.exit(-1);
-                    }
+                @Override
+                public void onError(Throwable t) {
+                    System.out.println("Primality test RPC error: " + t.getMessage());
+                    System.exit(-1);
+                }
 
-                    @Override
-                    public void onCompleted() {
-                    }
-                });
-            }
+                @Override
+                public void onCompleted() {
+                }
+            });
             System.out.println("Waiting for key generation complete");
             try {
                 primalityTestLock.wait();
@@ -252,10 +251,10 @@ public class ManagerMain {
     public void run() {
         formCluster();
         formNetwork();
-        do{
+        do {
             generateKeyPieces();
-//            primalityTest();
-        }while (!passPrimalityTest);
+            primalityTest();
+        } while (!passPrimalityTest);
         Scanner s = new Scanner(System.in);
         s.nextLine();
     }

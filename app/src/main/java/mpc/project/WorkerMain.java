@@ -92,7 +92,7 @@ public class WorkerMain {
 
         @Override
         public void generateKeyPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-            synchronized (moduloGenerationLock){
+            synchronized (moduloGenerationLock) {
                 // id is used for bitNum now, not id
                 bitNum = request.getId();
                 randomPrime = new BigInteger(request.getContents().toByteArray());
@@ -108,14 +108,14 @@ public class WorkerMain {
         public void sendPrimesPQH(SendPrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangePrimesLock) {
                 int i = request.getId() - 1;
-                System.out.println("receiving "+i+" prime p q h");
+                System.out.println("receiving " + i + " prime p q h");
                 pArr[i] = new BigInteger(request.getP().toByteArray());
                 qArr[i] = new BigInteger(request.getQ().toByteArray());
                 hArr[i] = new BigInteger(request.getH().toByteArray());
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangePrimesWorkersCounter++;
-                if (exchangePrimesWorkersCounter == 2*clusterSize) {
+                if (exchangePrimesWorkersCounter == 2 * clusterSize) {
                     exchangePrimesLock.notify();
                 }
             }
@@ -125,33 +125,33 @@ public class WorkerMain {
         synchronized public void sendNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangeNPiecesLock) {
                 int i = request.getId() - 1;
-                System.out.println("receiving "+i+" N piece");
+                System.out.println("receiving " + i + " N piece");
                 nPieceArr[i] = new BigInteger(request.getContents().toByteArray());
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangeNPiecesWorkersCounter++;
-                if (exchangeNPiecesWorkersCounter == 2*clusterSize) {
+                if (exchangeNPiecesWorkersCounter == 2 * clusterSize) {
                     exchangeNPiecesLock.notify();
                 }
             }
         }
 
         @Override
-        public void primalityTest(StdRequest req, StreamObserver<StdResponse> responseObserver) {
+        public void primalityTest(StdRequest request, StreamObserver<PrimalityTestResponse> responseObserver) {
             if (id == 1) {
                 boolean passPrimalityTest = primalityTestHost();
-                StdResponse response;
+                PrimalityTestResponse response;
                 if (passPrimalityTest) {
-                    response = RpcUtility.newStdResponse(1);
+                    response = RpcUtility.newPrimalityTestResponse(1);
                 } else {
-                    response = RpcUtility.newStdResponse(0);
+                    response = RpcUtility.newPrimalityTestResponse(0);
                 }
                 responseObserver.onNext(response);
                 responseObserver.onCompleted();
             } else {
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                BigInteger result = primalityTestGuest(new BigInteger(request.getContents().toByteArray()));
+                responseObserver.onNext(RpcUtility.newPrimalityTestResponse(id, result));
                 responseObserver.onCompleted();
-                primalityTestGuest();
             }
         }
     }
@@ -267,7 +267,7 @@ public class WorkerMain {
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("exchangePQH RPC error for "+i+" : " + t.getMessage());
+                System.out.println("exchangePQH RPC error for " + i + " : " + t.getMessage());
                 System.exit(-1);
             }
 
@@ -276,7 +276,7 @@ public class WorkerMain {
                 System.out.println("sent!");
                 synchronized (exchangePrimesLock) {
                     exchangePrimesWorkersCounter++;
-                    if (exchangePrimesWorkersCounter == 2*clusterSize) {
+                    if (exchangePrimesWorkersCounter == 2 * clusterSize) {
                         exchangePrimesLock.notify();
                     }
                 }
@@ -294,7 +294,7 @@ public class WorkerMain {
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("sendNPiece RPC error for "+i+" : " + t.getMessage());
+                System.out.println("sendNPiece RPC error for " + i + " : " + t.getMessage());
                 System.exit(-1);
             }
 
@@ -303,7 +303,7 @@ public class WorkerMain {
                 System.out.println("sent!");
                 synchronized (exchangeNPiecesLock) {
                     exchangeNPiecesWorkersCounter++;
-                    if (exchangeNPiecesWorkersCounter == 2*clusterSize) {
+                    if (exchangeNPiecesWorkersCounter == 2 * clusterSize) {
                         exchangeNPiecesLock.notify();
                     }
                 }
@@ -313,11 +313,14 @@ public class WorkerMain {
 
     private void genNPiece() {
         synchronized (exchangeNPiecesLock) {
-            BigInteger nPiece = arraySum(pArr).multiply(arraySum(qArr)).add(arraySum(hArr)).mod(randomPrime);
+            BigInteger nPiece = (arraySum(pArr).mod(randomPrime)
+                            .multiply(arraySum(qArr).mod(randomPrime))).mod(randomPrime)
+                            .add(arraySum(hArr).mod(randomPrime))
+                            .mod(randomPrime);
             for (int i = 1; i <= clusterSize; i++) {
                 sendNPiece(i, nPiece);
             }
-            if(exchangeNPiecesWorkersCounter < clusterSize){
+            if (exchangeNPiecesWorkersCounter < clusterSize) {
                 try {
                     exchangeNPiecesLock.wait();
                 } catch (Exception e) {
@@ -338,10 +341,10 @@ public class WorkerMain {
             BigDecimal Ni = new BigDecimal(nPieceArr[i]);
             N = N.add(Ni.multiply(BigDecimal.valueOf(values[i])));
         }
-        this.N = N.toBigInteger();
-        System.out.println("The modular is :" + N);
+        this.N = N.toBigInteger().mod(randomPrime);
+        System.out.println("The modular is :" + this.N);
     }
-
+:
 
     // Util methods
 
@@ -375,11 +378,64 @@ public class WorkerMain {
         return results;
     }
 
+    final Object primalityTestLock = new Object();
+    int primalityTestCounter = 0;
+    boolean primalityTestWaiting = false;
+
     private boolean primalityTestHost() {
-        return false;
+        BigInteger g = genRandBig(bitNum, N, rnd);
+        BigInteger[] verificationArray = new BigInteger[this.clusterSize - 1];
+        BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
+        verificationArray[0] = g.modPow(exponent, N);
+
+        synchronized (primalityTestLock) {
+            primalityTestWaiting = true;
+            primalityTestCounter = 0;
+            for (int i = 1; i < addressBook.length; i++) {
+                StdRequest request = RpcUtility.newStdRequest(id, g);
+                stubs[i].primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
+                    @Override
+                    public void onNext(PrimalityTestResponse value) {
+                        int j = value.getId() - 1;
+                        BigInteger v = new BigInteger(value.getV().toByteArray());
+                        verificationArray[j] = v;
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("primalityTest to Guests RPC Error: " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        primalityTestCounter++;
+                        if (primalityTestCounter == addressBook.length) {
+                            primalityTestLock.notify();
+                        }
+                    }
+                });
+
+                System.out.println("Waiting for key generation complete");
+                try {
+                    primalityTestLock.wait();
+                } catch (InterruptedException e) {
+                    System.out.println("Waiting interrupted: " + e.getMessage());
+                    System.exit(-3);
+                }
+                primalityTestWaiting = false;
+            }
+        }
+
+        BigInteger v = BigInteger.valueOf(1);
+        for (int i = 1; i < clusterSize; i++) {
+            v = v.mod(N).multiply(verificationArray[i].mod(N)).mod(N);
+        }
+
+        return verificationArray[0].equals(v);
     }
 
-    private void primalityTestGuest() {
-
+    private BigInteger primalityTestGuest(BigInteger g) {
+        return g.modPow(p.add(q), N);
     }
 }

@@ -12,7 +12,7 @@ service WorkerService {
   rpc generateKeyPiece(StdRequest) returns (StdResponse) {}
   rpc sendPrimesPQH (SendPrimespqhRequest) returns (StdResponse) {}
   rpc sendNPiece(StdRequest) returns (StdResponse) {}
-  rpc primalityTest(StdRequest) returns (StdResponse) {}
+  rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
 }
 
 // this service is for the manager server
@@ -36,4 +36,9 @@ message SendPrimespqhRequest {
 
 message StdResponse {
   int32 id = 1;      // for specifying the responser's id
+}
+
+message PrimalityTestResponse {
+  int32 id = 1;
+  bytes v = 2;
 }
