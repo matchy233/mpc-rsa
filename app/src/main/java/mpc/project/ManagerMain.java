@@ -19,7 +19,7 @@ public class ManagerMain {
     private Server server;
     private int portNum;
     private int id;
-    private BigInteger P;
+    private BigInteger randomPrime;
     private ArrayList<WorkerServiceGrpc.WorkerServiceStub> stubs;
     private ArrayList<String> addressBook;
     private String selfAddress;
@@ -29,7 +29,7 @@ public class ManagerMain {
         public void greeting(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             int id = request.getId();
             System.out.println("receive greeting from worker " + id);
-            StdResponse response = RpcUtility.newResponse(id);
+            StdResponse response = RpcUtility.newStdResponse(id);
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         }
@@ -39,8 +39,8 @@ public class ManagerMain {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
-        StdRequest formClusterRequest = RpcUtility.newRequest(workerId, P);
-        StdRequest registerManagerRequest = RpcUtility.newRequest(workerId, selfAddress);
+        StdRequest formClusterRequest = RpcUtility.newStdRequest(workerId, randomPrime);
+        StdRequest registerManagerRequest = RpcUtility.newStdRequest(workerId, selfAddress);
         try {
             testStub.registerManager(registerManagerRequest);
             testStub.formCluster(formClusterRequest);
@@ -97,7 +97,7 @@ public class ManagerMain {
             formNetworkCounterWaiting = true;
             formNetworkCounter = 0;
             for (int i = 0; i < addressBook.size(); i++) {
-                StdRequest request = RpcUtility.newRequest(i + 1, midString);
+                StdRequest request = RpcUtility.newStdRequest(i + 1, midString);
                 stubs.get(i).formNetwork(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
@@ -140,7 +140,7 @@ public class ManagerMain {
     public ManagerMain(int portNum) {
         this.portNum = portNum;
         this.rnd = new Random();
-        this.P = BigInteger.probablePrime(keyBitLength, rnd);
+        this.randomPrime = BigInteger.probablePrime(keyBitLength, rnd);
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new ManagerServiceImpl())
@@ -151,15 +151,17 @@ public class ManagerMain {
             System.exit(-2);
         }
     }
+
     final Object generateKeyPiecesLock = new Object();
     int generateKeyPiecesCounter = 0;
     boolean generateKeyPiecesWaiting = false;
-    private void generateKeyPieces(){
+
+    private void generateKeyPieces() {
         synchronized (generateKeyPiecesLock) {
             generateKeyPiecesWaiting = true;
             generateKeyPiecesCounter = 0;
             for (int i = 0; i < addressBook.size(); i++) {
-                StdRequest request = RpcUtility.newRequest(keyBitLength, P);
+                StdRequest request = RpcUtility.newStdRequest(keyBitLength, randomPrime);
                 stubs.get(i).generateKeyPiece(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
