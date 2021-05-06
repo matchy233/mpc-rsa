@@ -344,7 +344,7 @@ public class WorkerMain {
         this.N = N.toBigInteger().mod(randomPrime);
         System.out.println("The modular is :" + this.N);
     }
-:
+
 
     // Util methods
 
