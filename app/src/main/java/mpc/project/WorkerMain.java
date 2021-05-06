@@ -43,6 +43,8 @@ public class WorkerMain {
     private int exchangeNPiecesWorkersCounter = 0;
     private boolean exchangeNPiecesWaiting = false;
 
+    private final Object moduloGenerationLock = new Object();
+
     class WorkerServiceImpl extends WorkerServiceGrpc.WorkerServiceImplBase {
         @Override
         public void formCluster(StdRequest request, StreamObserver<StdResponse> responseObserver) {
@@ -90,27 +92,30 @@ public class WorkerMain {
 
         @Override
         public void generateKeyPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-            // id is used for bitNum now, not id
-            bitNum = request.getId();
-            randomPrime = new BigInteger(request.getContents().toByteArray());
-            p = genRandBig(bitNum, randomPrime, rnd);
-            q = genRandBig(bitNum, randomPrime, rnd);
-            WorkerMain.this.generateKeyPiece();
-            responseObserver.onNext(RpcUtility.newStdResponse(id));
-            responseObserver.onCompleted();
+            synchronized (moduloGenerationLock){
+                // id is used for bitNum now, not id
+                bitNum = request.getId();
+                randomPrime = new BigInteger(request.getContents().toByteArray());
+                p = genRandBig(bitNum, randomPrime, rnd);
+                q = genRandBig(bitNum, randomPrime, rnd);
+                WorkerMain.this.generateKeyPiece();
+                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onCompleted();
+            }
         }
 
         @Override
         public void sendPrimesPQH(SendPrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangePrimesLock) {
                 int i = request.getId() - 1;
+                System.out.println("receiving "+i+" prime p q h");
                 pArr[i] = new BigInteger(request.getP().toByteArray());
                 qArr[i] = new BigInteger(request.getQ().toByteArray());
                 hArr[i] = new BigInteger(request.getH().toByteArray());
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangePrimesWorkersCounter++;
-                if (exchangePrimesWorkersCounter == clusterSize) {
+                if (exchangePrimesWorkersCounter == 2*clusterSize) {
                     exchangePrimesLock.notify();
                 }
             }
@@ -120,11 +125,12 @@ public class WorkerMain {
         synchronized public void sendNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangeNPiecesLock) {
                 int i = request.getId() - 1;
+                System.out.println("receiving "+i+" N piece");
                 nPieceArr[i] = new BigInteger(request.getContents().toByteArray());
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangeNPiecesWorkersCounter++;
-                if (exchangeNPiecesWorkersCounter == clusterSize) {
+                if (exchangeNPiecesWorkersCounter == 2*clusterSize) {
                     exchangeNPiecesLock.notify();
                 }
             }
@@ -261,13 +267,19 @@ public class WorkerMain {
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("RPC error: " + t.getMessage());
+                System.out.println("exchangePQH RPC error for "+i+" : " + t.getMessage());
                 System.exit(-1);
             }
 
             @Override
             public void onCompleted() {
                 System.out.println("sent!");
+                synchronized (exchangePrimesLock) {
+                    exchangePrimesWorkersCounter++;
+                    if (exchangePrimesWorkersCounter == 2*clusterSize) {
+                        exchangePrimesLock.notify();
+                    }
+                }
             }
         });
     }
@@ -282,13 +294,19 @@ public class WorkerMain {
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("RPC error: " + t.getMessage());
+                System.out.println("sendNPiece RPC error for "+i+" : " + t.getMessage());
                 System.exit(-1);
             }
 
             @Override
             public void onCompleted() {
                 System.out.println("sent!");
+                synchronized (exchangeNPiecesLock) {
+                    exchangeNPiecesWorkersCounter++;
+                    if (exchangeNPiecesWorkersCounter == 2*clusterSize) {
+                        exchangeNPiecesLock.notify();
+                    }
+                }
             }
         });
     }
@@ -299,7 +317,6 @@ public class WorkerMain {
             for (int i = 1; i <= clusterSize; i++) {
                 sendNPiece(i, nPiece);
             }
-            exchangeNPiecesWorkersCounter++;
             if(exchangeNPiecesWorkersCounter < clusterSize){
                 try {
                     exchangeNPiecesLock.wait();

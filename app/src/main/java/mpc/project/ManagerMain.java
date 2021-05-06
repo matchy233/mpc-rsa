@@ -254,7 +254,7 @@ public class ManagerMain {
         formNetwork();
         do{
             generateKeyPieces();
-            primalityTest();
+//            primalityTest();
         }while (!passPrimalityTest);
         Scanner s = new Scanner(System.in);
         s.nextLine();
