@@ -151,10 +151,55 @@ public class ManagerMain {
             System.exit(-2);
         }
     }
+    final Object generateKeyPiecesLock = new Object();
+    int generateKeyPiecesCounter = 0;
+    boolean generateKeyPiecesWaiting = false;
+    private void generateKeyPieces(){
+        synchronized (generateKeyPiecesLock) {
+            generateKeyPiecesWaiting = true;
+            generateKeyPiecesCounter = 0;
+            for (int i = 0; i < addressBook.size(); i++) {
+                StdRequest request = RpcUtility.newRequest(keyBitLength, P);
+                stubs.get(i).generateKeyPiece(request, new StreamObserver<StdResponse>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                        System.out.println("received by " + response.getId());
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("RPC error: " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        if (generateKeyPiecesWaiting) {
+                            synchronized (generateKeyPiecesLock) {
+                                generateKeyPiecesCounter++;
+                                if (generateKeyPiecesCounter == clusterSize) {
+                                    generateKeyPiecesLock.notify();
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            System.out.println("Waiting for key generation complete");
+            try {
+                generateKeyPiecesLock.wait();
+            } catch (InterruptedException e) {
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-3);
+            }
+            generateKeyPiecesWaiting = false;
+        }
+    }
 
     public void run() {
         formCluster();
         formNetwork();
+        generateKeyPieces();
         Scanner s = new Scanner(System.in);
         s.nextLine();
     }

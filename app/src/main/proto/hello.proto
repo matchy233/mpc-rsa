@@ -9,6 +9,7 @@ service WorkerService {
   rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
+  rpc generateKeyPiece(StdRequest) returns (StdResponse) {}
 }
 
 // this service is for the manager server
