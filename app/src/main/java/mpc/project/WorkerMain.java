@@ -37,11 +37,13 @@ public class WorkerMain {
     // Todo: find a more elegant way to implement synchronization
     private final Object exchangePrimesLock = new Object();
     private int exchangePrimesWorkersCounter = 0;
-    private boolean exchangePrimesWaiting = true;
+    private boolean exchangePrimesWaiting = false;
 
-    final Object exchangeNPiecesLock = new Object();
-    int exchangeNPiecesWorkersCounter = 0;
-    boolean exchangeNPiecesWaiting = false;
+    private final Object exchangeNPiecesLock = new Object();
+    private int exchangeNPiecesWorkersCounter = 0;
+    private boolean exchangeNPiecesWaiting = false;
+
+    private final Object computeModuloLock = new Object();
 
 
     class WorkerServiceImpl extends WorkerServiceGrpc.WorkerServiceImplBase {
@@ -92,11 +94,19 @@ public class WorkerMain {
             randomPrime = new BigInteger(request.getContents().toByteArray());
             p = genRandBig(bitNum, randomPrime, rnd);
             q = genRandBig(bitNum, randomPrime, rnd);
-            BigInteger keyPiece = WorkerMain.this.generateKeyPiece();
+            synchronized (computeModuloLock){
+                WorkerMain.this.generateKeyPiece();
+                try{
+                    computeModuloLock.wait();
+                }catch (Exception e){
+                    System.out.println(e.getMessage());
+                }
+            }
             responseObserver.onNext(RpcUtility.newStdResponse(id));
             responseObserver.onCompleted();
         }
 
+        @Override
         synchronized public void sendPrimesPQH (SendPrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
             int i = request.getId() - 1;
             pArr[i] = new BigInteger(request.getP().toByteArray());
@@ -301,6 +311,9 @@ public class WorkerMain {
         }
         this.N = N.toBigInteger();
         System.out.println("The modular is :" + N);
+        synchronized (computeModuloLock){
+            computeModuloLock.notify();
+        }
     }
 
 
