@@ -12,6 +12,7 @@ service WorkerService {
   rpc generateKeyPiece(StdRequest) returns (StdResponse) {}
   rpc sendPrimesPQH (SendPrimespqhRequest) returns (StdResponse) {}
   rpc sendNPiece(StdRequest) returns (StdResponse) {}
+  rpc primalityTest(StdRequest) returns (StdResponse) {}
 }
 
 // this service is for the manager server

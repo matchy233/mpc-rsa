@@ -121,6 +121,25 @@ public class WorkerMain {
                 genN();
             }
         }
+
+        @Override
+        public void primalityTest(StdRequest req, StreamObserver<StdResponse> responseObserver){
+            if(id==1){
+                boolean passPrimalityTest = primalityTestHost();
+                StdResponse response;
+                if(passPrimalityTest){
+                    response = RpcUtility.newStdResponse(1);
+                }else{
+                    response = RpcUtility.newStdResponse(0);
+                }
+                responseObserver.onNext(response);
+                responseObserver.onCompleted();
+            }else{
+                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onCompleted();
+                primalityTestGuest();
+            }
+        }
     }
 
     public WorkerMain(int portNum) {
@@ -317,4 +336,11 @@ public class WorkerMain {
         return results;
     }
 
+    private boolean primalityTestHost(){
+        return false;
+    }
+
+    private void primalityTestGuest(){
+
+    }
 }
