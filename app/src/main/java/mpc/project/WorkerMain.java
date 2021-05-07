@@ -96,8 +96,10 @@ public class WorkerMain {
                 // id is used for bitNum now, not id
                 bitNum = request.getId();
                 randomPrime = new BigInteger(request.getContents().toByteArray());
-                p = genRandBig(bitNum, randomPrime, rnd);
-                q = genRandBig(bitNum, randomPrime, rnd);
+//                p = genRandPrimeBig(bitNum, randomPrime, rnd);
+                p = BigInteger.probablePrime(bitNum, rnd);
+//                q = genRandPrimeBig(bitNum, randomPrime, rnd);
+                q = BigInteger.probablePrime(bitNum, rnd);
                 WorkerMain.this.generateKeyPiece();
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
@@ -108,7 +110,7 @@ public class WorkerMain {
         public void sendPrimesPQH(SendPrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangePrimesLock) {
                 int i = request.getId() - 1;
-                System.out.println("receiving " + i + " prime p q h");
+//                System.out.println("receiving " + i + " prime p q h");
                 pArr[i] = new BigInteger(request.getP().toByteArray());
                 qArr[i] = new BigInteger(request.getQ().toByteArray());
                 hArr[i] = new BigInteger(request.getH().toByteArray());
@@ -125,7 +127,7 @@ public class WorkerMain {
         synchronized public void sendNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangeNPiecesLock) {
                 int i = request.getId() - 1;
-                System.out.println("receiving " + i + " N piece");
+//                System.out.println("receiving " + i + " N piece");
                 nPieceArr[i] = new BigInteger(request.getContents().toByteArray());
                 responseObserver.onNext(RpcUtility.newStdResponse(id));
                 responseObserver.onCompleted();
@@ -138,7 +140,8 @@ public class WorkerMain {
 
         @Override
         public void primalityTest(StdRequest request, StreamObserver<PrimalityTestResponse> responseObserver) {
-            if (id == 1) {
+//            System.out.println("receive primalityTest RPC");
+            if (id == 1 && !primalityTestWaiting) {
                 boolean passPrimalityTest = primalityTestHost();
                 PrimalityTestResponse response;
                 if (passPrimalityTest) {
@@ -178,11 +181,23 @@ public class WorkerMain {
         }
     }
 
-    private BigInteger genRandBig(int bitNum, BigInteger lessThanThis, Random rnd) {
+    private BigInteger genRandPrimeBig(int bitNum, BigInteger lessThanThis, Random rnd) {
         BigInteger result = BigInteger.valueOf(0);
         do {
             result = BigInteger.probablePrime(bitNum, rnd);
         } while (result.compareTo(lessThanThis) >= 0);
+        return result;
+    }
+
+    private BigInteger genRandBig(BigInteger lessThanThis, Random rnd) {
+        int len = lessThanThis.bitLength();
+        BigInteger result = new BigInteger(len, rnd);
+        if (result.compareTo(BigInteger.ONE) < 0) {
+            result = result.add(BigInteger.ONE);
+        }
+        if (result.compareTo(lessThanThis.subtract(BigInteger.ONE)) >= 0) {
+            result = result.mod(lessThanThis).add(BigInteger.ONE);
+        }
         return result;
     }
 
@@ -207,19 +222,19 @@ public class WorkerMain {
             polyF = new BigInteger[l];
             polyF[0] = p;
             for (int i = 1; i < polyF.length; i++) {
-                polyF[i] = genRandBig(bitNum, randomPrime, rnd);
+                polyF[i] = genRandBig(randomPrime, rnd);
             }
 
             polyG = new BigInteger[l];
             polyG[0] = q;
             for (int i = 1; i < polyG.length; i++) {
-                polyG[i] = genRandBig(bitNum, randomPrime, rnd);
+                polyG[i] = genRandBig(randomPrime, rnd);
             }
 
             polyH = new BigInteger[2 * l];
             polyH[0] = BigInteger.valueOf(0);
             for (int i = 1; i < polyH.length; i++) {
-                polyH[i] = genRandBig(bitNum, randomPrime, rnd);
+                polyH[i] = genRandBig(randomPrime, rnd);
             }
 
 //        pArr = new BigInteger[clusterSize];
@@ -262,7 +277,7 @@ public class WorkerMain {
         stubs[i - 1].sendPrimesPQH(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
-                System.out.println("received by " + response.getId());
+//                System.out.println("received by " + response.getId());
             }
 
             @Override
@@ -273,7 +288,7 @@ public class WorkerMain {
 
             @Override
             public void onCompleted() {
-                System.out.println("sent!");
+//                System.out.println("sent!");
                 synchronized (exchangePrimesLock) {
                     exchangePrimesWorkersCounter++;
                     if (exchangePrimesWorkersCounter == 2 * clusterSize) {
@@ -289,7 +304,7 @@ public class WorkerMain {
         stubs[i - 1].sendNPiece(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
-                System.out.println("received by " + response.getId());
+//                System.out.println("received by " + response.getId());
             }
 
             @Override
@@ -300,7 +315,7 @@ public class WorkerMain {
 
             @Override
             public void onCompleted() {
-                System.out.println("sent!");
+//                System.out.println("sent!");
                 synchronized (exchangeNPiecesLock) {
                     exchangeNPiecesWorkersCounter++;
                     if (exchangeNPiecesWorkersCounter == 2 * clusterSize) {
@@ -313,10 +328,10 @@ public class WorkerMain {
 
     private void genNPiece() {
         synchronized (exchangeNPiecesLock) {
-            BigInteger nPiece = (arraySum(pArr).mod(randomPrime)
-                            .multiply(arraySum(qArr).mod(randomPrime))).mod(randomPrime)
-                            .add(arraySum(hArr).mod(randomPrime))
-                            .mod(randomPrime);
+            BigInteger nPiece = (arraySum(pArr)
+                    .multiply(arraySum(qArr)))
+                    .add(arraySum(hArr))
+                    .mod(randomPrime);
             for (int i = 1; i <= clusterSize; i++) {
                 sendNPiece(i, nPiece);
             }
@@ -383,15 +398,18 @@ public class WorkerMain {
     boolean primalityTestWaiting = false;
 
     private boolean primalityTestHost() {
-        BigInteger g = genRandBig(bitNum, N, rnd);
-        BigInteger[] verificationArray = new BigInteger[this.clusterSize - 1];
-        BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
-        verificationArray[0] = g.modPow(exponent, N);
+//        System.out.println("primalityTestHost() is called du");
+        BigInteger g = genRandBig(N, rnd);
 
+//        System.out.println("du");
+        BigInteger[] verificationArray = new BigInteger[this.clusterSize];
+//        BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
+//        verificationArray[0] = g.modPow(exponent, N);
         synchronized (primalityTestLock) {
+//            System.out.println("inside synchronized block");
             primalityTestWaiting = true;
             primalityTestCounter = 0;
-            for (int i = 1; i < addressBook.length; i++) {
+            for (int i = 0; i < addressBook.length; i++) {
                 StdRequest request = RpcUtility.newStdRequest(id, g);
                 stubs[i].primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
                     @Override
@@ -399,6 +417,7 @@ public class WorkerMain {
                         int j = value.getId() - 1;
                         BigInteger v = new BigInteger(value.getV().toByteArray());
                         verificationArray[j] = v;
+//                        System.out.println("receive result from worker " + value.getId());
                     }
 
                     @Override
@@ -409,33 +428,39 @@ public class WorkerMain {
 
                     @Override
                     public void onCompleted() {
-                        primalityTestCounter++;
-                        if (primalityTestCounter == addressBook.length) {
-                            primalityTestLock.notify();
+                        synchronized (primalityTestLock) {
+                            primalityTestCounter++;
+                            if (primalityTestCounter == addressBook.length) {
+                                primalityTestLock.notify();
+                            }
                         }
                     }
                 });
-
-                System.out.println("Waiting for key generation complete");
-                try {
-                    primalityTestLock.wait();
-                } catch (InterruptedException e) {
-                    System.out.println("Waiting interrupted: " + e.getMessage());
-                    System.exit(-3);
-                }
-                primalityTestWaiting = false;
             }
+            System.out.println("Waiting for primality test complete");
+            try {
+                primalityTestLock.wait();
+            } catch (InterruptedException e) {
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-3);
+            }
+            primalityTestWaiting = false;
         }
 
         BigInteger v = BigInteger.valueOf(1);
         for (int i = 1; i < clusterSize; i++) {
-            v = v.mod(N).multiply(verificationArray[i].mod(N)).mod(N);
+            v = v.multiply(verificationArray[i]);
         }
 
-        return verificationArray[0].equals(v);
+        return verificationArray[0].equals(v.mod(N));
     }
 
     private BigInteger primalityTestGuest(BigInteger g) {
+//        System.out.println("performing primality test");
+        if (id == 1) {
+            BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
+            return g.modPow(exponent, N);
+        }
         return g.modPow(p.add(q), N);
     }
 }

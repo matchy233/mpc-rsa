@@ -13,7 +13,7 @@ import mpc.project.util.RpcUtility;
 public class ManagerMain {
     final int clusterMaxSize = 48;
     final int clusterMinSize = 3;
-    final int keyBitLength = 1024;
+    final int keyBitLength = 8;
     private int clusterSize;
     private Random rnd;
     private Server server;
@@ -140,7 +140,7 @@ public class ManagerMain {
     public ManagerMain(int portNum) {
         this.portNum = portNum;
         this.rnd = new Random();
-        this.randomPrime = BigInteger.probablePrime(keyBitLength, rnd);
+        this.randomPrime = BigInteger.probablePrime(3*keyBitLength, rnd);
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new ManagerServiceImpl())
@@ -165,7 +165,7 @@ public class ManagerMain {
                 stubs.get(i).generateKeyPiece(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
-                        System.out.println("received by " + response.getId());
+//                        System.out.println("received by " + response.getId());
                     }
 
                     @Override
@@ -237,7 +237,7 @@ public class ManagerMain {
                 public void onCompleted() {
                 }
             });
-            System.out.println("Waiting for key generation complete");
+            System.out.println("Waiting for primality test to complete");
             try {
                 primalityTestLock.wait();
             } catch (InterruptedException e) {
@@ -251,11 +251,16 @@ public class ManagerMain {
     public void run() {
         formCluster();
         formNetwork();
-        do {
-            generateKeyPieces();
-            primalityTest();
-        } while (!passPrimalityTest);
-        Scanner s = new Scanner(System.in);
-        s.nextLine();
+        do{
+            do {
+                generateKeyPieces();
+                primalityTest();
+            } while (!passPrimalityTest);
+            Scanner s = new Scanner(System.in);
+            if(s.nextLine().equals("quit")){
+                System.exit(0);
+            }
+        }while(true);
+
     }
 }
