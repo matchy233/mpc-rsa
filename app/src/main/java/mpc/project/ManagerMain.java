@@ -13,7 +13,7 @@ import mpc.project.util.RpcUtility;
 public class ManagerMain {
     final int clusterMaxSize = 48;
     final int clusterMinSize = 3;
-    final int keyBitLength = 8;
+    final int keyBitLength = 16;
     private int clusterSize;
     private Random rnd;
     private Server server;
@@ -140,7 +140,7 @@ public class ManagerMain {
     public ManagerMain(int portNum) {
         this.portNum = portNum;
         this.rnd = new Random();
-        this.randomPrime = BigInteger.probablePrime(3*keyBitLength, rnd);
+        this.randomPrime = BigInteger.probablePrime(3 * keyBitLength, rnd);
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new ManagerServiceImpl())
@@ -248,19 +248,24 @@ public class ManagerMain {
         }
     }
 
+    final Object generateKeyLock = new Object();
+    boolean generateKeyWaiting = false;
+
+    private void generateKey() {
+
+    }
+
     public void run() {
         formCluster();
         formNetwork();
-        do{
-            do {
-                generateKeyPieces();
-                primalityTest();
-            } while (!passPrimalityTest);
-            Scanner s = new Scanner(System.in);
-            if(s.nextLine().equals("quit")){
-                System.exit(0);
-            }
-        }while(true);
-
+        do {
+            generateKeyPieces();
+            primalityTest();
+        } while (!passPrimalityTest);
+        generateKey();
+        Scanner s = new Scanner(System.in);
+        if (s.nextLine().equals("quit")) {
+            System.exit(0);
+        }
     }
 }
