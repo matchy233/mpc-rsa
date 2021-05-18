@@ -41,6 +41,10 @@ public class MathUtility {
         return result;
     }
 
+    static public BigInteger genRandBig(int bitLength, Random rnd){
+        return new BigInteger(bitLength, rnd);
+    }
+
     static public BigInteger genRandBig(BigInteger lessThanThis, Random rnd) {
         int len = lessThanThis.bitLength();
         BigInteger result = new BigInteger(len, rnd);
@@ -62,9 +66,18 @@ public class MathUtility {
         return result;
     }
 
-    static public BigInteger[] generateRandomSumArray(BigInteger sum, int size) {
-        BigInteger[] reuslt = new BigInteger[size];
-
-        return reuslt;
+    static public BigInteger[] generateRandomSumArray(BigInteger sum, int size, Random rnd) {
+        BigInteger[] result = new BigInteger[size];
+        int bigLength = sum.bitLength();
+        for(int i = 0; i < size-1; i++){
+            BigInteger num = genRandBig(bigLength, rnd);
+            if(rnd.nextBoolean()){
+                num = num.negate();
+            }
+            result[i] = num;
+        }
+        result[size-1] = BigInteger.ZERO;
+        result[size-1] = sum.subtract(arraySum(result));
+        return result;
     }
 }

@@ -96,7 +96,7 @@ public class ManagerMain {
         synchronized (formNetworkLock) {
             formNetworkCounterWaiting = true;
             formNetworkCounter = 0;
-            for (int i = 0; i < addressBook.size(); i++) {
+            for (int i = 0; i < clusterSize; i++) {
                 StdRequest request = RpcUtility.newStdRequest(i + 1, midString);
                 stubs.get(i).formNetwork(request, new StreamObserver<StdResponse>() {
                     @Override
@@ -160,9 +160,9 @@ public class ManagerMain {
         synchronized (generateKeyPiecesLock) {
             generateKeyPiecesWaiting = true;
             generateKeyPiecesCounter = 0;
-            for (int i = 0; i < addressBook.size(); i++) {
+            for(WorkerServiceGrpc.WorkerServiceStub worker : stubs){
                 StdRequest request = RpcUtility.newStdRequest(keyBitLength, randomPrime);
-                stubs.get(i).generateKeyPiece(request, new StreamObserver<StdResponse>() {
+                worker.generateKeyPiece(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
 //                        System.out.println("received by " + response.getId());
@@ -249,10 +249,43 @@ public class ManagerMain {
     }
 
     final Object generateKeyLock = new Object();
+    int generateKeyCounter = 0;
     boolean generateKeyWaiting = false;
+    BigInteger e = BigInteger.valueOf(65537);
 
     private void generateKey() {
+        synchronized (generateKeyLock){
+            generateKeyCounter = 0;
+            for(WorkerServiceGrpc.WorkerServiceStub worker:stubs){
+                worker.generateKey(RpcUtility.newStdRequest(id, e), new StreamObserver<StdResponse>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                        synchronized (generateKeyLock){
+                            generateKeyCounter ++;
+                            if(generateKeyCounter == clusterSize){
+                                generateKeyLock.notify();
+                            }
+                        }
+                    }
 
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("generate Key RPC error: " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                    }
+                });
+            }
+            try {
+                generateKeyLock.wait();
+            }catch (Exception e){
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-3);
+            }
+        }
     }
 
     public void run() {

@@ -13,6 +13,9 @@ service WorkerService {
   rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
   rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
+  rpc generateKey(StdRequest) returns (StdResponse) {}
+  rpc exchangeGamma(StdRequest) returns (StdResponse) {}
+  rpc exchangeGammaSum(StdRequest) returns (StdResponse) {}
 }
 
 // this service is for the manager server
@@ -23,7 +26,7 @@ service ManagerService{
 
 message StdRequest {
   int32 id = 1;       // for specifying the sender's id
-                      // in formCluster, it marks the receiving worker's id
+  // in formCluster, it marks the receiving worker's id
   bytes contents = 2; // for containing the information, usually a BigNumber
 }
 

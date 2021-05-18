@@ -34,6 +34,8 @@ public class WorkerMain {
     private BigInteger N;       // modular
     private BigInteger[] nPieceArr;
 
+    private BigInteger e;
+
     // For synchronization between workers
     // Todo: find a more elegant way to implement synchronization
     private final Object exchangePrimesLock = new Object();
@@ -69,13 +71,10 @@ public class WorkerMain {
                 Channel channel = ManagedChannelBuilder.forTarget(addressBook[i]).usePlaintext().build();
                 stubs[i] = WorkerServiceGrpc.newStub(channel);
             }
+            clusterSize = addressBook.length;
+            keyGenerationArrayInit();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-            clusterSize = addressBook.length;
-            pArr = new BigInteger[clusterSize];
-            qArr = new BigInteger[clusterSize];
-            hArr = new BigInteger[clusterSize];
-            nPieceArr = new BigInteger[clusterSize];
         }
 
         @Override
@@ -125,7 +124,7 @@ public class WorkerMain {
         }
 
         @Override
-        synchronized public void exchangeNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+        public void exchangeNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangeNPiecesLock) {
                 int i = request.getId() - 1;
 //                System.out.println("receiving " + i + " N piece");
@@ -151,12 +150,49 @@ public class WorkerMain {
                     response = RpcUtility.newPrimalityTestResponse(0);
                 }
                 responseObserver.onNext(response);
-                responseObserver.onCompleted();
             } else {
                 BigInteger result = primalityTestGuest(new BigInteger(request.getContents().toByteArray()));
                 responseObserver.onNext(RpcUtility.newPrimalityTestResponse(id, result));
-                responseObserver.onCompleted();
             }
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void exchangeGamma(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            synchronized (exchangeGammaLock) {
+                int i = request.getId() - 1;
+                BigInteger gamma = new BigInteger(request.getContents().toByteArray());
+                gammaArr[i] = gamma;
+                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onCompleted();
+                exchangeGammaCounter++;
+                if (exchangeGammaCounter == 2 * clusterSize) {
+                    exchangeGammaLock.notify();
+                }
+            }
+        }
+
+        @Override
+        public void exchangeGammaSum(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            synchronized (exchangeGammaSumLock) {
+                int i = request.getId() - 1;
+                BigInteger gammaSum = new BigInteger(request.getContents().toByteArray());
+                gammaSumArr[i] = gammaSum;
+                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onCompleted();
+                exchangeGammaSumCounter++;
+                if (exchangeGammaSumCounter == 2 * clusterSize) {
+                    exchangeGammaSumLock.notify();
+                }
+            }
+        }
+
+        @Override
+        public void generateKey(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            e = new BigInteger(request.getContents().toByteArray());
+            WorkerMain.this.generateKey();
+            responseObserver.onNext(RpcUtility.newStdResponse(id));
+            responseObserver.onCompleted();
         }
     }
 
@@ -180,6 +216,15 @@ public class WorkerMain {
                 server.shutdownNow();
             }
         }
+    }
+
+    private void keyGenerationArrayInit() {
+        pArr = new BigInteger[clusterSize];
+        qArr = new BigInteger[clusterSize];
+        hArr = new BigInteger[clusterSize];
+        nPieceArr = new BigInteger[clusterSize];
+        gammaArr = new BigInteger[clusterSize];
+        gammaSumArr = new BigInteger[clusterSize];
     }
 
     private BigInteger generateKeyPiece() {
@@ -231,7 +276,7 @@ public class WorkerMain {
             for (int i = 1; i <= clusterSize; i++) {
                 sendPQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1]);
             }
-            if (exchangePrimesWorkersCounter < clusterSize) {
+            if (exchangePrimesWorkersCounter < 2 * clusterSize) {
                 try {
                     exchangePrimesLock.wait();
                 } catch (Exception e) {
@@ -307,7 +352,7 @@ public class WorkerMain {
             for (int i = 1; i <= clusterSize; i++) {
                 sendNPiece(i, nPiece);
             }
-            if (exchangeNPiecesWorkersCounter < clusterSize) {
+            if (exchangeNPiecesWorkersCounter < 2 * clusterSize) {
                 try {
                     exchangeNPiecesLock.wait();
                 } catch (Exception e) {
@@ -403,10 +448,104 @@ public class WorkerMain {
         return g.modPow(p.add(q), N);
     }
 
+    final Object exchangeGammaLock = new Object();
+    int exchangeGammaCounter = 0;
+    BigInteger[] gammaArr;
+    final Object exchangeGammaSumLock = new Object();
+    int exchangeGammaSumCounter = 0;
+    BigInteger[] gammaSumArr;
+
     private void generateKey() {
         BigInteger phi = (id == 1) ?
                 N.subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
+        BigInteger[] gammaArrLocal = MathUtility.generateRandomSumArray(phi, clusterSize, rnd);
+        synchronized (exchangeGammaLock) {
+            for (int i = 0; i < clusterSize; i++) {
+                sendGamma(i + 1, gammaArrLocal[i]);
+            }
+            if (exchangeGammaCounter < 2 * clusterSize) {
+                try {
+                    exchangeGammaLock.wait();
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    System.exit(-1);
+                }
+            }
+            exchangeGammaCounter = 0;
+        }
+        BigInteger gammaSum = MathUtility.arraySum(gammaArr);
+        synchronized (exchangeGammaSumLock) {
+            for (int i = 0; i < clusterSize; i++) {
+                sendGammaSum(i + 1, gammaSum);
+            }
+            if (exchangeGammaSumCounter < 2 * clusterSize) {
+                try {
+                    exchangeGammaSumLock.wait();
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    System.exit(-1);
+                }
+            }
+            exchangeGammaSumCounter = 0;
+        }
+        BigInteger l = MathUtility.arraySum(gammaSumArr).mod(e);
+        BigDecimal zeta = new BigDecimal(l).pow(-1).remainder(new BigDecimal(e));
+        BigInteger d = zeta.negate().multiply(new BigDecimal(phi)).divide(new BigDecimal(e)).toBigInteger();
+        // ToDo: finish from here
+    }
 
+    private void sendGamma(int i, BigInteger gamma) {
+        StdRequest request = RpcUtility.newStdRequest(this.id, gamma);
+        stubs[i - 1].exchangeGamma(request, new StreamObserver<StdResponse>() {
+            @Override
+            public void onNext(StdResponse response) {
+//                System.out.println("received by " + response.getId());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println("sendGamma RPC error for " + i + " : " + t.getMessage());
+                System.exit(-1);
+            }
+
+            @Override
+            public void onCompleted() {
+//                System.out.println("sent!");
+                synchronized (exchangeGammaLock) {
+                    exchangeGammaCounter++;
+                    if (exchangeGammaCounter == 2 * clusterSize) {
+                        exchangeGammaLock.notify();
+                    }
+                }
+            }
+        });
+    }
+
+    private void sendGammaSum(int i, BigInteger gammaSum) {
+        StdRequest request = RpcUtility.newStdRequest(this.id, gammaSum);
+        stubs[i - 1].exchangeGammaSum(request, new StreamObserver<StdResponse>() {
+            @Override
+            public void onNext(StdResponse response) {
+//                System.out.println("received by " + response.getId());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println("sendGamma RPC error for " + i + " : " + t.getMessage());
+                System.exit(-1);
+            }
+
+            @Override
+            public void onCompleted() {
+//                System.out.println("sent!");
+                synchronized (exchangeGammaSumLock) {
+                    exchangeGammaSumCounter++;
+                    if (exchangeGammaSumCounter == 2 * clusterSize) {
+                        exchangeGammaSumLock.notify();
+                    }
+                }
+            }
+        });
     }
 }
