@@ -10,8 +10,8 @@ service WorkerService {
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
   rpc generateKeyPiece(StdRequest) returns (StdResponse) {}
-  rpc sendPrimesPQH (SendPrimespqhRequest) returns (StdResponse) {}
-  rpc sendNPiece(StdRequest) returns (StdResponse) {}
+  rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
+  rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
   rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
 }
 
@@ -27,7 +27,7 @@ message StdRequest {
   bytes contents = 2; // for containing the information, usually a BigNumber
 }
 
-message SendPrimespqhRequest {
+message ExchangePrimespqhRequest {
   int32 id = 1;
   bytes p = 2;
   bytes q = 3;

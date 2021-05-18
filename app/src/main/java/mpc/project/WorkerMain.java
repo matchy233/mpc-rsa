@@ -108,7 +108,7 @@ public class WorkerMain {
         }
 
         @Override
-        public void sendPrimesPQH(SendPrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
+        public void exchangePrimesPQH(ExchangePrimespqhRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangePrimesLock) {
                 int i = request.getId() - 1;
 //                System.out.println("receiving " + i + " prime p q h");
@@ -125,7 +125,7 @@ public class WorkerMain {
         }
 
         @Override
-        synchronized public void sendNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+        synchronized public void exchangeNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             synchronized (exchangeNPiecesLock) {
                 int i = request.getId() - 1;
 //                System.out.println("receiving " + i + " N piece");
@@ -229,7 +229,7 @@ public class WorkerMain {
 
             // Wait to receive all p q h
             for (int i = 1; i <= clusterSize; i++) {
-                exchangePQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1]);
+                sendPQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1]);
             }
             if (exchangePrimesWorkersCounter < clusterSize) {
                 try {
@@ -244,9 +244,9 @@ public class WorkerMain {
         genNPiece();
     }
 
-    private void exchangePQH(int i, BigInteger p, BigInteger q, BigInteger h) {
-        SendPrimespqhRequest request = RpcUtility.newSendPrimesRequest(this.id, p, q, h);
-        stubs[i - 1].sendPrimesPQH(request, new StreamObserver<>() {
+    private void sendPQH(int i, BigInteger p, BigInteger q, BigInteger h) {
+        ExchangePrimespqhRequest request = RpcUtility.newExchangePrimesRequest(this.id, p, q, h);
+        stubs[i - 1].exchangePrimesPQH(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
 //                System.out.println("received by " + response.getId());
@@ -273,7 +273,7 @@ public class WorkerMain {
 
     private void sendNPiece(int i, BigInteger nPiece) {
         StdRequest request = RpcUtility.newStdRequest(this.id, nPiece);
-        stubs[i - 1].sendNPiece(request, new StreamObserver<StdResponse>() {
+        stubs[i - 1].exchangeNPiece(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
 //                System.out.println("received by " + response.getId());

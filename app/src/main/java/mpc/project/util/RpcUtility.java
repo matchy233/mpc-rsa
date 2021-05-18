@@ -4,7 +4,7 @@ import com.google.protobuf.ByteString;
 import mpc.project.PrimalityTestResponse;
 import mpc.project.StdRequest;
 import mpc.project.StdResponse;
-import mpc.project.SendPrimespqhRequest;
+import mpc.project.ExchangePrimespqhRequest;
 
 import java.math.BigInteger;
 
@@ -29,8 +29,8 @@ public class RpcUtility {
         return StdRequest.newBuilder().setId(id).build();
     }
 
-    static public SendPrimespqhRequest newSendPrimesRequest(int id, BigInteger p, BigInteger q, BigInteger h) {
-        SendPrimespqhRequest result = SendPrimespqhRequest.newBuilder()
+    static public ExchangePrimespqhRequest newExchangePrimesRequest(int id, BigInteger p, BigInteger q, BigInteger h) {
+        ExchangePrimespqhRequest result = ExchangePrimespqhRequest.newBuilder()
                 .setId(id)
                 .setP(ByteString.copyFrom(p.toByteArray()))
                 .setQ(ByteString.copyFrom(q.toByteArray()))
