@@ -5,55 +5,57 @@ import io.grpc.stub.StreamObserver;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.Random;
 
+import mpc.project.util.Key;
 import mpc.project.util.RpcUtility;
 import mpc.project.util.MathUtility;
+import mpc.project.util.RSA;
 
 public class WorkerMain {
     private Server server;
-    private int portNum;
+    private final int portNum;
     private int id;
-    private Random rnd;
+    private final Random rnd;
     private int bitNum;
     private String[] addressBook;
     private int clusterSize;
     private WorkerServiceGrpc.WorkerServiceStub[] stubs;
     private ManagerServiceGrpc.ManagerServiceBlockingStub managerStub;
 
-    // Variables necessary for distributed RSA keypair generation
+    /* Variables for distributed RSA keypair generation */
     private BigInteger randomPrime;
     private BigInteger p;
     private BigInteger q;
     BigInteger[] pArr;          // An array holding p_i ( i \in [1, clusterNum])
     BigInteger[] qArr;          // An array holding q_i ( i \in [1, clusterNum])
     BigInteger[] hArr;          // An array holding h_i ( i \in [1, clusterNum])
-    private BigInteger[] polyF;
-    private BigInteger[] polyG;
-    private BigInteger[] polyH;
-    private BigInteger N;       // modular
     private BigInteger[] nPieceArr;
 
-    private BigInteger e;
+    /* Rsa Key
+     *    Stores exponent e, modulus N and private d
+     *    public key:  <e, N>
+     *    private key: <d, N>
+     */
+    private Key key;
 
-    // For synchronization between workers
+    /* Locks for synchronization between workers */
     // Todo: find a more elegant way to implement synchronization
     private final Object exchangePrimesLock = new Object();
     private int exchangePrimesWorkersCounter = 0;
-    private boolean exchangePrimesWaiting = false;
 
     private final Object exchangeNPiecesLock = new Object();
     private int exchangeNPiecesWorkersCounter = 0;
-    private boolean exchangeNPiecesWaiting = false;
 
-    private final Object moduloGenerationLock = new Object();
+    private final Object modulusGenerationLock = new Object();
 
     class WorkerServiceImpl extends WorkerServiceGrpc.WorkerServiceImplBase {
         @Override
         public void formCluster(StdRequest request, StreamObserver<StdResponse> responseObserver) {
 //            id = request.getId();
 //            randomPrime = new BigInteger(request.getContents().toByteArray());
-            StdResponse res = RpcUtility.newStdResponse(id);
+            StdResponse res = RpcUtility.Response.newStdResponse(id);
             responseObserver.onNext(res);
             responseObserver.onCompleted();
             System.out.println("connected to Manager");
@@ -63,7 +65,7 @@ public class WorkerMain {
         public void formNetwork(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             String midString = new String(request.getContents().toByteArray());
             addressBook = midString.split(";");
-            StdResponse response = RpcUtility.newStdResponse(id);
+            StdResponse response = RpcUtility.Response.newStdResponse(id);
             stubs = new WorkerServiceGrpc.WorkerServiceStub[addressBook.length];
             System.out.println("received and parsed addressBook: ");
             for (int i = 0; i < addressBook.length; i++) {
@@ -83,16 +85,16 @@ public class WorkerMain {
             String managerUri = new String(request.getContents().toByteArray());
             Channel channel = ManagedChannelBuilder.forTarget(managerUri).usePlaintext().build();
             managerStub = ManagerServiceGrpc.newBlockingStub(channel);
-            StdRequest greetingReq = RpcUtility.newStdRequest(id);
+            StdRequest greetingReq = RpcUtility.Request.newStdRequest(id);
             managerStub.greeting(greetingReq);
-            responseObserver.onNext(RpcUtility.newStdResponse(id));
+            responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
             responseObserver.onCompleted();
             System.out.println("registered manager at " + managerUri);
         }
 
         @Override
-        public void generateKeyPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-            synchronized (moduloGenerationLock) {
+        public void generateModulusPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            synchronized (modulusGenerationLock) {
                 // id is used for bitNum now, not id
                 bitNum = request.getId();
                 randomPrime = new BigInteger(request.getContents().toByteArray());
@@ -100,8 +102,8 @@ public class WorkerMain {
                 p = BigInteger.probablePrime(bitNum, rnd);
 //                q = genRandPrimeBig(bitNum, randomPrime, rnd);
                 q = BigInteger.probablePrime(bitNum, rnd);
-                WorkerMain.this.generateKeyPiece();
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                WorkerMain.this.generateModulusPiece();
+                responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
                 responseObserver.onCompleted();
             }
         }
@@ -114,7 +116,7 @@ public class WorkerMain {
                 pArr[i] = new BigInteger(request.getP().toByteArray());
                 qArr[i] = new BigInteger(request.getQ().toByteArray());
                 hArr[i] = new BigInteger(request.getH().toByteArray());
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangePrimesWorkersCounter++;
                 if (exchangePrimesWorkersCounter == 2 * clusterSize) {
@@ -129,7 +131,7 @@ public class WorkerMain {
                 int i = request.getId() - 1;
 //                System.out.println("receiving " + i + " N piece");
                 nPieceArr[i] = new BigInteger(request.getContents().toByteArray());
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangeNPiecesWorkersCounter++;
                 if (exchangeNPiecesWorkersCounter == 2 * clusterSize) {
@@ -145,14 +147,14 @@ public class WorkerMain {
                 boolean passPrimalityTest = primalityTestHost();
                 PrimalityTestResponse response;
                 if (passPrimalityTest) {
-                    response = RpcUtility.newPrimalityTestResponse(1);
+                    response = RpcUtility.Response.newPrimalityTestResponse(1);
                 } else {
-                    response = RpcUtility.newPrimalityTestResponse(0);
+                    response = RpcUtility.Response.newPrimalityTestResponse(0);
                 }
                 responseObserver.onNext(response);
             } else {
                 BigInteger result = primalityTestGuest(new BigInteger(request.getContents().toByteArray()));
-                responseObserver.onNext(RpcUtility.newPrimalityTestResponse(id, result));
+                responseObserver.onNext(RpcUtility.Response.newPrimalityTestResponse(id, result));
             }
             responseObserver.onCompleted();
         }
@@ -163,7 +165,7 @@ public class WorkerMain {
                 int i = request.getId() - 1;
                 BigInteger gamma = new BigInteger(request.getContents().toByteArray());
                 gammaArr[i] = gamma;
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangeGammaCounter++;
                 if (exchangeGammaCounter == 2 * clusterSize) {
@@ -178,7 +180,7 @@ public class WorkerMain {
                 int i = request.getId() - 1;
                 BigInteger gammaSum = new BigInteger(request.getContents().toByteArray());
                 gammaSumArr[i] = gammaSum;
-                responseObserver.onNext(RpcUtility.newStdResponse(id));
+                responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
                 responseObserver.onCompleted();
                 exchangeGammaSumCounter++;
                 if (exchangeGammaSumCounter == 2 * clusterSize) {
@@ -188,10 +190,9 @@ public class WorkerMain {
         }
 
         @Override
-        public void generateKey(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-            e = new BigInteger(request.getContents().toByteArray());
-            WorkerMain.this.generateKey();
-            responseObserver.onNext(RpcUtility.newStdResponse(id));
+        public void generatePrivateKey(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            WorkerMain.this.generatePrivateKey();
+            responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
             responseObserver.onCompleted();
         }
     }
@@ -227,46 +228,42 @@ public class WorkerMain {
         gammaSumArr = new BigInteger[clusterSize];
     }
 
-    private BigInteger generateKeyPiece() {
+    private void generateModulusPiece() {
         generateFGH();
-        return null;
     }
 
     private void generateFGH() {
         synchronized (exchangePrimesLock) {
             int l = (clusterSize - 1) / 2;
 
-            polyF = new BigInteger[l];
+            BigInteger[] polyF = new BigInteger[l];
             polyF[0] = p;
             for (int i = 1; i < polyF.length; i++) {
                 polyF[i] = MathUtility.genRandBig(randomPrime, rnd);
             }
 
-            polyG = new BigInteger[l];
+            BigInteger[] polyG = new BigInteger[l];
             polyG[0] = q;
             for (int i = 1; i < polyG.length; i++) {
                 polyG[i] = MathUtility.genRandBig(randomPrime, rnd);
             }
 
-            polyH = new BigInteger[2 * l];
+            BigInteger[] polyH = new BigInteger[2 * l];
             polyH[0] = BigInteger.valueOf(0);
             for (int i = 1; i < polyH.length; i++) {
                 polyH[i] = MathUtility.genRandBig(randomPrime, rnd);
             }
 
-//        pArr = new BigInteger[clusterSize];
             BigInteger[] pArr_tmp = new BigInteger[clusterSize];
             for (int i = 0; i < clusterSize; i++) {
                 pArr_tmp[i] = MathUtility.polynomialResult(polyF, BigInteger.valueOf(i + 1));
             }
 
-//        qArr = new BigInteger[clusterSize];
             BigInteger[] qArr_tmp = new BigInteger[clusterSize];
             for (int i = 0; i < clusterSize; i++) {
                 qArr_tmp[i] = MathUtility.polynomialResult(polyG, BigInteger.valueOf(i + 1));
             }
 
-//        hArr = new BigInteger[clusterSize];
             BigInteger[] hArr_tmp = new BigInteger[clusterSize];
             for (int i = 0; i < clusterSize; i++) {
                 hArr_tmp[i] = MathUtility.polynomialResult(polyH, BigInteger.valueOf(i + 1));
@@ -286,15 +283,14 @@ public class WorkerMain {
             }
         }
         exchangePrimesWorkersCounter = 0;
-        genNPiece();
+        generateNPiece();
     }
 
     private void sendPQH(int i, BigInteger p, BigInteger q, BigInteger h) {
-        ExchangePrimespqhRequest request = RpcUtility.newExchangePrimesRequest(this.id, p, q, h);
+        ExchangePrimespqhRequest request = RpcUtility.Request.newExchangePrimesRequest(this.id, p, q, h);
         stubs[i - 1].exchangePrimesPQH(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
-//                System.out.println("received by " + response.getId());
             }
 
             @Override
@@ -317,11 +313,10 @@ public class WorkerMain {
     }
 
     private void sendNPiece(int i, BigInteger nPiece) {
-        StdRequest request = RpcUtility.newStdRequest(this.id, nPiece);
+        StdRequest request = RpcUtility.Request.newStdRequest(this.id, nPiece);
         stubs[i - 1].exchangeNPiece(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
-//                System.out.println("received by " + response.getId());
             }
 
             @Override
@@ -343,7 +338,7 @@ public class WorkerMain {
         });
     }
 
-    private void genNPiece() {
+    private void generateNPiece() {
         synchronized (exchangeNPiecesLock) {
             BigInteger nPiece = (MathUtility.arraySum(pArr)
                     .multiply(MathUtility.arraySum(qArr)))
@@ -362,19 +357,19 @@ public class WorkerMain {
             }
         }
         exchangeNPiecesWorkersCounter = 0;
-        genN();
+        generateN();
     }
 
-
-    private void genN() {
+    private void generateN() {
         double[] values = MathUtility.computeValuesOfLagrangianPolynomialsAtZero(clusterSize);
         BigDecimal N = new BigDecimal(0);
         for (int i = 0; i < nPieceArr.length; i++) {
             BigDecimal Ni = new BigDecimal(nPieceArr[i]);
             N = N.add(Ni.multiply(BigDecimal.valueOf(values[i])));
         }
-        this.N = N.toBigInteger().mod(randomPrime);
-        System.out.println("The modular is :" + this.N);
+        key.setN(N.toBigInteger().mod(randomPrime));
+        RSA.init(key.getN());
+        System.out.println("The modulus is :" + key.getN());
     }
 
     final Object primalityTestLock = new Object();
@@ -382,26 +377,21 @@ public class WorkerMain {
     boolean primalityTestWaiting = false;
 
     private boolean primalityTestHost() {
-//        System.out.println("primalityTestHost() is called du");
-        BigInteger g = MathUtility.genRandBig(N, rnd);
+        BigInteger g = MathUtility.genRandBig(key.getN(), rnd);
 
-//        System.out.println("du");
         BigInteger[] verificationArray = new BigInteger[this.clusterSize];
-//        BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
-//        verificationArray[0] = g.modPow(exponent, N);
+
         synchronized (primalityTestLock) {
-//            System.out.println("inside synchronized block");
             primalityTestWaiting = true;
             primalityTestCounter = 0;
             for (int i = 0; i < addressBook.length; i++) {
-                StdRequest request = RpcUtility.newStdRequest(id, g);
+                StdRequest request = RpcUtility.Request.newStdRequest(id, g);
                 stubs[i].primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
                     @Override
                     public void onNext(PrimalityTestResponse value) {
                         int j = value.getId() - 1;
                         BigInteger v = new BigInteger(value.getV().toByteArray());
                         verificationArray[j] = v;
-//                        System.out.println("receive result from worker " + value.getId());
                     }
 
                     @Override
@@ -436,16 +426,16 @@ public class WorkerMain {
             v = v.multiply(verificationArray[i]);
         }
 
-        return verificationArray[0].equals(v.mod(N));
+        return verificationArray[0].equals(v.mod(key.getN()));
     }
 
     private BigInteger primalityTestGuest(BigInteger g) {
-//        System.out.println("performing primality test");
+        // Todo: change server 1 every time to do load balancing
         if (id == 1) {
-            BigInteger exponent = N.subtract(p).subtract(q).add(BigInteger.valueOf(1));
-            return g.modPow(exponent, N);
+            BigInteger exponent = key.getN().subtract(p).subtract(q).add(BigInteger.valueOf(1));
+            return g.modPow(exponent, key.getN());
         }
-        return g.modPow(p.add(q), N);
+        return g.modPow(p.add(q), key.getN());
     }
 
     final Object exchangeGammaLock = new Object();
@@ -455,9 +445,10 @@ public class WorkerMain {
     int exchangeGammaSumCounter = 0;
     BigInteger[] gammaSumArr;
 
-    private void generateKey() {
+    private void generatePrivateKey() {
+        // Todo: change server 1 every time to do load balancing
         BigInteger phi = (id == 1) ?
-                N.subtract(p).subtract(q).add(BigInteger.ONE) :
+                key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
         BigInteger[] gammaArrLocal = MathUtility.generateRandomSumArray(phi, clusterSize, rnd);
         synchronized (exchangeGammaLock) {
@@ -489,14 +480,21 @@ public class WorkerMain {
             }
             exchangeGammaSumCounter = 0;
         }
-        BigInteger l = MathUtility.arraySum(gammaSumArr).mod(e);
-        BigDecimal zeta = new BigDecimal(l).pow(-1).remainder(new BigDecimal(e));
-        BigInteger d = zeta.negate().multiply(new BigDecimal(phi)).divide(new BigDecimal(e)).toBigInteger();
-        // ToDo: finish from here
+        BigInteger l = MathUtility.arraySum(gammaSumArr).mod(key.getE());
+
+        BigDecimal zeta = BigDecimal.ONE.divide(new BigDecimal(l), RoundingMode.HALF_UP)
+                .remainder(new BigDecimal(key.getE()));
+
+        BigInteger d = zeta.negate()
+                .multiply(new BigDecimal(phi))
+                .divide(new BigDecimal(key.getE()), RoundingMode.HALF_UP)
+                .toBigInteger();
+
+
     }
 
     private void sendGamma(int i, BigInteger gamma) {
-        StdRequest request = RpcUtility.newStdRequest(this.id, gamma);
+        StdRequest request = RpcUtility.Request.newStdRequest(this.id, gamma);
         stubs[i - 1].exchangeGamma(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
@@ -523,7 +521,7 @@ public class WorkerMain {
     }
 
     private void sendGammaSum(int i, BigInteger gammaSum) {
-        StdRequest request = RpcUtility.newStdRequest(this.id, gammaSum);
+        StdRequest request = RpcUtility.Request.newStdRequest(this.id, gammaSum);
         stubs[i - 1].exchangeGammaSum(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
@@ -548,4 +546,5 @@ public class WorkerMain {
             }
         });
     }
+
 }

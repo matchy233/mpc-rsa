@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
+import mpc.project.util.Key;
 import mpc.project.util.RpcUtility;
 
 public class ManagerMain {
@@ -24,12 +25,14 @@ public class ManagerMain {
     private ArrayList<String> addressBook;
     private String selfAddress;
 
+    private Key key = new Key();
+
     class ManagerServiceImpl extends ManagerServiceGrpc.ManagerServiceImplBase {
         @Override
         public void greeting(StdRequest request, StreamObserver<StdResponse> responseObserver) {
             int id = request.getId();
             System.out.println("receive greeting from worker " + id);
-            StdResponse response = RpcUtility.newStdResponse(id);
+            StdResponse response = RpcUtility.Response.newStdResponse(id);
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         }
@@ -39,8 +42,8 @@ public class ManagerMain {
         System.out.println("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
-        StdRequest formClusterRequest = RpcUtility.newStdRequest(workerId, randomPrime);
-        StdRequest registerManagerRequest = RpcUtility.newStdRequest(workerId, selfAddress);
+        StdRequest formClusterRequest = RpcUtility.Request.newStdRequest(workerId, randomPrime);
+        StdRequest registerManagerRequest = RpcUtility.Request.newStdRequest(workerId, selfAddress);
         try {
             testStub.registerManager(registerManagerRequest);
             testStub.formCluster(formClusterRequest);
@@ -97,7 +100,7 @@ public class ManagerMain {
             formNetworkCounterWaiting = true;
             formNetworkCounter = 0;
             for (int i = 0; i < clusterSize; i++) {
-                StdRequest request = RpcUtility.newStdRequest(i + 1, midString);
+                StdRequest request = RpcUtility.Request.newStdRequest(i + 1, midString);
                 stubs.get(i).formNetwork(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
@@ -152,17 +155,17 @@ public class ManagerMain {
         }
     }
 
-    final Object generateKeyPiecesLock = new Object();
-    int generateKeyPiecesCounter = 0;
-    boolean generateKeyPiecesWaiting = false;
+    final Object generateModulusLock = new Object();
+    int generateModulusCounter = 0;
+    boolean generateModulusWaiting = false;
 
-    private void generateKeyPieces() {
-        synchronized (generateKeyPiecesLock) {
-            generateKeyPiecesWaiting = true;
-            generateKeyPiecesCounter = 0;
-            for(WorkerServiceGrpc.WorkerServiceStub worker : stubs){
-                StdRequest request = RpcUtility.newStdRequest(keyBitLength, randomPrime);
-                worker.generateKeyPiece(request, new StreamObserver<StdResponse>() {
+    private void generateModulus() {
+        synchronized (generateModulusLock) {
+            generateModulusWaiting = true;
+            generateModulusCounter = 0;
+            for (WorkerServiceGrpc.WorkerServiceStub worker : stubs) {
+                StdRequest request = RpcUtility.Request.newStdRequest(keyBitLength, randomPrime);
+                worker.generateModulusPiece(request, new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
 //                        System.out.println("received by " + response.getId());
@@ -176,11 +179,11 @@ public class ManagerMain {
 
                     @Override
                     public void onCompleted() {
-                        if (generateKeyPiecesWaiting) {
-                            synchronized (generateKeyPiecesLock) {
-                                generateKeyPiecesCounter++;
-                                if (generateKeyPiecesCounter == clusterSize) {
-                                    generateKeyPiecesLock.notify();
+                        if (generateModulusWaiting) {
+                            synchronized (generateModulusLock) {
+                                generateModulusCounter++;
+                                if (generateModulusCounter == clusterSize) {
+                                    generateModulusLock.notify();
                                 }
                             }
                         }
@@ -189,12 +192,12 @@ public class ManagerMain {
             }
             System.out.println("Waiting for key generation complete");
             try {
-                generateKeyPiecesLock.wait();
+                generateModulusLock.wait();
             } catch (InterruptedException e) {
                 System.out.println("Waiting interrupted: " + e.getMessage());
                 System.exit(-3);
             }
-            generateKeyPiecesWaiting = false;
+            generateModulusWaiting = false;
         }
     }
 
@@ -206,7 +209,7 @@ public class ManagerMain {
         synchronized (primalityTestLock) {
             primalityTestWaiting = true;
             passPrimalityTest = false;
-            StdRequest request = RpcUtility.newStdRequest(keyBitLength);
+            StdRequest request = RpcUtility.Request.newStdRequest(keyBitLength);
             stubs.get(0).primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
                 @Override
                 public void onNext(PrimalityTestResponse response) {
@@ -248,22 +251,21 @@ public class ManagerMain {
         }
     }
 
-    final Object generateKeyLock = new Object();
-    int generateKeyCounter = 0;
-    boolean generateKeyWaiting = false;
-    BigInteger e = BigInteger.valueOf(65537);
+    final Object generatePrivateKeyLock = new Object();
+    int generatePrivateKeyCounter = 0;
+    boolean generatePrivateKeyWaiting = false;
 
-    private void generateKey() {
-        synchronized (generateKeyLock){
-            generateKeyCounter = 0;
-            for(WorkerServiceGrpc.WorkerServiceStub worker:stubs){
-                worker.generateKey(RpcUtility.newStdRequest(id, e), new StreamObserver<StdResponse>() {
+    private void generatePrivateKey() {
+        synchronized (generatePrivateKeyLock) {
+            generatePrivateKeyCounter = 0;
+            for (WorkerServiceGrpc.WorkerServiceStub worker : stubs) {
+                worker.generatePrivateKey(RpcUtility.Request.newStdRequest(id), new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
-                        synchronized (generateKeyLock){
-                            generateKeyCounter ++;
-                            if(generateKeyCounter == clusterSize){
-                                generateKeyLock.notify();
+                        synchronized (generatePrivateKeyLock) {
+                            generatePrivateKeyCounter++;
+                            if (generatePrivateKeyCounter == clusterSize) {
+                                generatePrivateKeyLock.notify();
                             }
                         }
                     }
@@ -280,8 +282,8 @@ public class ManagerMain {
                 });
             }
             try {
-                generateKeyLock.wait();
-            }catch (Exception e){
+                generatePrivateKeyLock.wait();
+            } catch (Exception e) {
                 System.out.println("Waiting interrupted: " + e.getMessage());
                 System.exit(-3);
             }
@@ -292,10 +294,10 @@ public class ManagerMain {
         formCluster();
         formNetwork();
         do {
-            generateKeyPieces();
+            generateModulus();
             primalityTest();
         } while (!passPrimalityTest);
-        generateKey();
+        generatePrivateKey();
         Scanner s = new Scanner(System.in);
         if (s.nextLine().equals("quit")) {
             System.exit(0);

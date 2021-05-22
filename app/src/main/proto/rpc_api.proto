@@ -6,13 +6,20 @@ option java_package = "mpc.project";
 // this service is for the worker server
 // add more rpc methods and request/response types if needed
 service WorkerService {
+  /* Clust formation utilities */
   rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
+
+  /* Generate Modulus utilities */
   rpc generateModulusPiece(StdRequest) returns (StdResponse) {}
   rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
+
+  /* Primality test utilities */
   rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
+
+  /* Private key generation utilities */
   rpc generatePrivateKey(StdRequest) returns (StdResponse) {}
   rpc exchangeGamma(StdRequest) returns (StdResponse) {}
   rpc exchangeGammaSum(StdRequest) returns (StdResponse) {}
@@ -39,6 +46,7 @@ message ExchangePrimespqhRequest {
 
 message StdResponse {
   int32 id = 1;      // for specifying the responser's id
+  bytes contents = 2;
 }
 
 message PrimalityTestResponse {
