@@ -490,7 +490,28 @@ public class WorkerMain {
                 .divide(new BigDecimal(key.getE()), RoundingMode.HALF_UP)
                 .toBigInteger();
 
-
+        // Start a trial division
+        if (id == 1) {
+            String testMessage = "test";
+            String encryptedTestMessage = RSA.encrypt(testMessage, key);
+            String[] result = trialDecryption(encryptedTestMessage);
+            boolean foundR = false;
+            for (int r = 0; r < clusterSize; r++) {
+                // Fixme: I'm not sure if this is implemented correctly
+                key.setD(d.subtract(BigInteger.valueOf(r)));
+                result[0] = RSA.localDecrypt(encryptedTestMessage, key);
+                foundR = RSA.distributedDecrypt(result, key).equals(testMessage);
+                if (foundR) {
+                    break;
+                }
+            }
+            if (!foundR) {
+                System.out.println("Cannot find r!! Something is wrong with our implementation!");
+                System.exit(-6);
+            }
+        } else {
+            key.setD(d);
+        }
     }
 
     private void sendGamma(int i, BigInteger gamma) {
@@ -545,6 +566,53 @@ public class WorkerMain {
                 }
             }
         });
+    }
+
+    final Object trialDecryptionLock = new Object();
+    boolean trialDecryptionWating = false;
+    int trialDecryptionCounter = 0;
+
+    private String[] trialDecryption(String encryptedMessage) {
+        String[] result = new String[clusterSize];
+        synchronized (trialDecryptionLock) {
+            trialDecryptionWating = true;
+            trialDecryptionCounter = 0;
+            for (int i = 1; i < clusterSize; i++) {
+                stubs[i].decrypt(RpcUtility.Request.newStdRequest(id, encryptedMessage),
+                        new StreamObserver<StdResponse>() {
+                            @Override
+                            public void onNext(StdResponse response) {
+                                int j = response.getId() - 1;
+                                result[j] = response.getContents().toString();
+                            }
+
+                            @Override
+                            public void onError(Throwable t) {
+                                System.out.println("trial decryption error: " + t.getMessage());
+                                System.exit(-1);
+                            }
+
+                            @Override
+                            public void onCompleted() {
+                                synchronized (trialDecryptionLock) {
+                                    trialDecryptionCounter++;
+                                    if (trialDecryptionCounter == clusterSize) {
+                                        trialDecryptionLock.notify();
+                                    }
+                                }
+                            }
+                        });
+            }
+            System.out.println("Waiting for trial decryption to complete");
+            try {
+                trialDecryptionLock.wait();
+            } catch (InterruptedException e) {
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-4);
+            }
+            trialDecryptionWating = false;
+        }
+        return result;
     }
 
 }

@@ -5,21 +5,20 @@ import java.util.Arrays;
 import java.util.Base64;
 
 public class RSA {
-    /**
+    /*
      * blockSize : encrypt message block by block which sizes blockSize
      * blockSize * 8 should be under log_2(N). If not, can't restore original value by modular operation.
      * paddingBlockSize : block by encryption result should pad by this
      * paddingBlockSize * 8 should be over log_2(N). If not, some bits can be loss.
      */
-    static private int blockSize = 1;
-    /**
+    /*
      * blockSize * 8 should be under log_2(N)
      **/
-    static private int paddingBlockSize = 2;
-
-    /**
+    static private int blockSize = 1;
+    /*
      * endBlockSize * 8 should be over log_2(N)
      **/
+    static private int paddingBlockSize = 2;
 
 
     static public void init(BigInteger N) {
