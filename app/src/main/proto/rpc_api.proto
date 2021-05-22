@@ -9,11 +9,11 @@ service WorkerService {
   rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
-  rpc generateKeyPiece(StdRequest) returns (StdResponse) {}
+  rpc generateModulusPiece(StdRequest) returns (StdResponse) {}
   rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
   rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
-  rpc generateKey(StdRequest) returns (StdResponse) {}
+  rpc generatePrivateKey(StdRequest) returns (StdResponse) {}
   rpc exchangeGamma(StdRequest) returns (StdResponse) {}
   rpc exchangeGammaSum(StdRequest) returns (StdResponse) {}
 }
