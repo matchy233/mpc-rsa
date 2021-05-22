@@ -195,6 +195,14 @@ public class WorkerMain {
             responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
             responseObserver.onCompleted();
         }
+
+        @Override
+        public void decrypt(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+            String encryptedString = new String(request.getContents().toByteArray());
+            String shadow = RSA.localDecrypt(encryptedString, key);
+            responseObserver.onNext(RpcUtility.Response.newStdResponse(id, shadow));
+            responseObserver.onCompleted();
+        }
     }
 
     public WorkerMain(int portNum) {
@@ -494,13 +502,13 @@ public class WorkerMain {
         if (id == 1) {
             String testMessage = "test";
             String encryptedTestMessage = RSA.encrypt(testMessage, key);
-            String[] result = trialDecryption(encryptedTestMessage);
+            String[] decryptionResults = trialDecryption(encryptedTestMessage);
             boolean foundR = false;
             for (int r = 0; r < clusterSize; r++) {
                 // Fixme: I'm not sure if this is implemented correctly
                 key.setD(d.subtract(BigInteger.valueOf(r)));
-                result[0] = RSA.localDecrypt(encryptedTestMessage, key);
-                foundR = RSA.distributedDecrypt(result, key).equals(testMessage);
+                decryptionResults[0] = RSA.localDecrypt(encryptedTestMessage, key);
+                foundR = RSA.distributedDecrypt(decryptionResults, key).equals(testMessage);
                 if (foundR) {
                     break;
                 }
@@ -583,7 +591,7 @@ public class WorkerMain {
                             @Override
                             public void onNext(StdResponse response) {
                                 int j = response.getId() - 1;
-                                result[j] = response.getContents().toString();
+                                result[j] = new String(response.getContents().toByteArray());
                             }
 
                             @Override

@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.Scanner;
 
 import mpc.project.util.Key;
+import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
 
 public class ManagerMain {
@@ -253,7 +254,6 @@ public class ManagerMain {
 
     final Object generatePrivateKeyLock = new Object();
     int generatePrivateKeyCounter = 0;
-    boolean generatePrivateKeyWaiting = false;
 
     private void generatePrivateKey() {
         synchronized (generatePrivateKeyLock) {
@@ -290,6 +290,51 @@ public class ManagerMain {
         }
     }
 
+    final Object decryptionLock = new Object();
+    boolean decryptionWaiting = false;
+    int decryptionCounter = 0;
+
+    public String[] decrypt(String s) {
+        String[] result = new String[clusterSize];
+        synchronized (decryptionLock) {
+            decryptionWaiting = true;
+            decryptionCounter = 0;
+            for (int i = 0; i < stubs.size(); i++) {
+                stubs.get(i).decrypt(RpcUtility.Request.newStdRequest(id, s),
+                        new StreamObserver<StdResponse>() {
+                            @Override
+                            public void onNext(StdResponse response) {
+                                int j = response.getId() - 1;
+                                result[j] = new String(response.getContents().toByteArray());
+                            }
+
+                            @Override
+                            public void onError(Throwable t) {
+                                System.out.println("decryption error: " + t.getMessage());
+                            }
+
+                            @Override
+                            public void onCompleted() {
+                                synchronized (decryptionLock) {
+                                    decryptionCounter++;
+                                    if (decryptionCounter == clusterSize) {
+                                        decryptionLock.notify();
+                                    }
+                                }
+                            }
+                        });
+            }
+            try {
+                decryptionLock.wait();
+            } catch (InterruptedException e) {
+                System.out.println("Waiting interrupted: " + e.getMessage());
+                System.exit(-4);
+            }
+            decryptionWaiting = false;
+        }
+        return result;
+    }
+
     public void run() {
         formCluster();
         formNetwork();
@@ -298,9 +343,18 @@ public class ManagerMain {
             primalityTest();
         } while (!passPrimalityTest);
         generatePrivateKey();
-        Scanner s = new Scanner(System.in);
-        if (s.nextLine().equals("quit")) {
-            System.exit(0);
+        Scanner scanner = new Scanner(System.in);
+        while (!scanner.nextLine().equals("quit")) {
+            String s = scanner.nextLine();
+            String encryptedString = RSA.encrypt(s, key);
+            System.out.println("Encrypted String: " + encryptedString);
+            String[] distributedDecryptionResults = decrypt(encryptedString);
+            String decryptedString = RSA.distributedDecrypt(distributedDecryptionResults, key);
+            System.out.println("Decrypted string: " + decryptedString);
+            System.out.println(
+                    "Decryption " +
+                    (decryptedString.equals(s) ? "successes!" : "fails!"));
         }
+        System.exit(0);
     }
 }
