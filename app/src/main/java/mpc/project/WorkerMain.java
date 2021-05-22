@@ -508,7 +508,7 @@ public class WorkerMain {
                 // Fixme: I'm not sure if this is implemented correctly
                 key.setD(d.subtract(BigInteger.valueOf(r)));
                 decryptionResults[0] = RSA.localDecrypt(encryptedTestMessage, key);
-                foundR = RSA.distributedDecrypt(decryptionResults, key).equals(testMessage);
+                foundR = RSA.combineDecryptionResult(decryptionResults, key).equals(testMessage);
                 if (foundR) {
                     break;
                 }
@@ -577,13 +577,13 @@ public class WorkerMain {
     }
 
     final Object trialDecryptionLock = new Object();
-    boolean trialDecryptionWating = false;
+    boolean trialDecryptionWaiting = false;
     int trialDecryptionCounter = 0;
 
     private String[] trialDecryption(String encryptedMessage) {
         String[] result = new String[clusterSize];
         synchronized (trialDecryptionLock) {
-            trialDecryptionWating = true;
+            trialDecryptionWaiting = true;
             trialDecryptionCounter = 0;
             for (int i = 1; i < clusterSize; i++) {
                 stubs[i].decrypt(RpcUtility.Request.newStdRequest(id, encryptedMessage),
@@ -618,7 +618,7 @@ public class WorkerMain {
                 System.out.println("Waiting interrupted: " + e.getMessage());
                 System.exit(-4);
             }
-            trialDecryptionWating = false;
+            trialDecryptionWaiting = false;
         }
         return result;
     }

@@ -98,7 +98,7 @@ public class RSA {
      * @param key     : any Key. just used for mod N calculation
      * @return: original message
      **/
-    static public String distributedDecrypt(String[] strings, Key key) {
+    static public String combineDecryptionResult(String[] strings, Key key) {
         // Decoder for Base64 decoding
         Base64.Decoder decoder = Base64.getDecoder();
 

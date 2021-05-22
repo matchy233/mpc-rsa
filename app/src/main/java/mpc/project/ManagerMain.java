@@ -349,7 +349,7 @@ public class ManagerMain {
             String encryptedString = RSA.encrypt(s, key);
             System.out.println("Encrypted String: " + encryptedString);
             String[] distributedDecryptionResults = decrypt(encryptedString);
-            String decryptedString = RSA.distributedDecrypt(distributedDecryptionResults, key);
+            String decryptedString = RSA.combineDecryptionResult(distributedDecryptionResults, key);
             System.out.println("Decrypted string: " + decryptedString);
             System.out.println(
                     "Decryption " +
