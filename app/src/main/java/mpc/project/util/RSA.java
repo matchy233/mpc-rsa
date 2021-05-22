@@ -4,7 +4,7 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Base64;
 
-public class RsaUtility {
+public class RSA {
     /**
      * blockSize : encrypt message block by block which sizes blockSize
      * blockSize * 8 should be under log_2(N). If not, can't restore original value by modular operation.
@@ -21,20 +21,11 @@ public class RsaUtility {
      * endBlockSize * 8 should be over log_2(N)
      **/
 
-//    public RSAEncryptedData() {}
-//    public RSAEncryptedData(int blockSize, int paddingBlockSize) {
-//        this.blockSize = blockSize;
-//        this.paddingBlockSize = paddingBlockSize;
-//    }
-    static public void init(int blockSize, int paddingBlockSize) {
-        RsaUtility.blockSize = blockSize;
-        RsaUtility.paddingBlockSize = paddingBlockSize;
-    }
 
-    static public void init(Key key) {
-        int n = key.getN().bitCount();
-        RsaUtility.blockSize = 1 + (n - 1) / 8;
-        RsaUtility.paddingBlockSize = n / 8 + 1;
+    static public void init(BigInteger N) {
+        int n = N.bitCount();
+        RSA.blockSize = 1 + (n - 1) / 8;
+        RSA.paddingBlockSize = n / 8 + 1;
     }
 
     /**
