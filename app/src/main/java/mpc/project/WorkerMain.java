@@ -38,7 +38,7 @@ public class WorkerMain {
      *    public key:  <e, N>
      *    private key: <d, N>
      */
-    private Key key;
+    private Key key = new Key();
 
     /* Locks for synchronization between workers */
     // Todo: find a more elegant way to implement synchronization
