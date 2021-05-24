@@ -244,23 +244,14 @@ public class WorkerMain {
         synchronized (exchangePrimesLock) {
             int l = (clusterSize - 1) / 2;
 
-            BigInteger[] polyF = new BigInteger[l];
+            BigInteger[] polyF = MathUtility.genRandBigPolynomial(l, randomPrime, rnd);
             polyF[0] = p;
-            for (int i = 1; i < polyF.length; i++) {
-                polyF[i] = MathUtility.genRandBig(randomPrime, rnd);
-            }
 
-            BigInteger[] polyG = new BigInteger[l];
+            BigInteger[] polyG = MathUtility.genRandBigPolynomial(l, randomPrime, rnd);
             polyG[0] = q;
-            for (int i = 1; i < polyG.length; i++) {
-                polyG[i] = MathUtility.genRandBig(randomPrime, rnd);
-            }
 
-            BigInteger[] polyH = new BigInteger[2 * l];
+            BigInteger[] polyH = MathUtility.genRandBigPolynomial(2 * l, randomPrime, rnd);
             polyH[0] = BigInteger.valueOf(0);
-            for (int i = 1; i < polyH.length; i++) {
-                polyH[i] = MathUtility.genRandBig(randomPrime, rnd);
-            }
 
             BigInteger[] pArr_tmp = new BigInteger[clusterSize];
             for (int i = 0; i < clusterSize; i++) {

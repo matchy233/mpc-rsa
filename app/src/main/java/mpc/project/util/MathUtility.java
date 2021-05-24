@@ -57,6 +57,14 @@ public class MathUtility {
         return result;
     }
 
+    static public BigInteger[] genRandBigPolynomial(int size, BigInteger lessThanThis, Random rnd){
+        BigInteger[] result = new BigInteger[size];
+        for(int i = 0; i < result.length; i++){
+            result[i] = genRandBig(lessThanThis, rnd);
+        }
+        return result;
+    }
+
     static public BigInteger polynomialResult(BigInteger[] poly, BigInteger input) {
         BigInteger result = BigInteger.valueOf(0);
         for (int i = 0; i < poly.length; i++) {
