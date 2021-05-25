@@ -80,4 +80,20 @@ public class MathUtility {
         result[size-1] = sum.subtract(arraySum(result));
         return result;
     }
+
+    static public BigInteger arrayProduct(BigInteger[] array){
+        BigInteger result = BigInteger.ONE;
+        for(BigInteger element : array){
+            result = result.multiply(element);
+        }
+        return result;
+    }
+
+    static public BigInteger[] toBigIntegerArray(long[] array){
+        BigInteger[] result = new BigInteger[array.length];
+        for(int i = 0; i < array.length; i++){
+            result[i] = BigInteger.valueOf(array[i]);
+        }
+        return result;
+    }
 }
