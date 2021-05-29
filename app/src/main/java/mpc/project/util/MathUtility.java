@@ -34,14 +34,14 @@ public class MathUtility {
     }
 
     static public BigInteger genRandPrimeBig(int bitNum, BigInteger lessThanThis, Random rnd) {
-        BigInteger result = BigInteger.valueOf(0);
+        BigInteger result;
         do {
             result = BigInteger.probablePrime(bitNum, rnd);
         } while (result.compareTo(lessThanThis) >= 0);
         return result;
     }
 
-    static public BigInteger genRandBig(int bitLength, Random rnd){
+    static public BigInteger genRandBig(int bitLength, Random rnd) {
         return new BigInteger(bitLength, rnd);
     }
 
@@ -77,15 +77,31 @@ public class MathUtility {
     static public BigInteger[] generateRandomSumArray(BigInteger sum, int size, Random rnd) {
         BigInteger[] result = new BigInteger[size];
         int bigLength = sum.bitLength();
-        for(int i = 0; i < size-1; i++){
+        for (int i = 0; i < size - 1; i++) {
             BigInteger num = genRandBig(bigLength, rnd);
-            if(rnd.nextBoolean()){
+            if (rnd.nextBoolean()) {
                 num = num.negate();
             }
             result[i] = num;
         }
-        result[size-1] = BigInteger.ZERO;
-        result[size-1] = sum.subtract(arraySum(result));
+        result[size - 1] = BigInteger.ZERO;
+        result[size - 1] = sum.subtract(arraySum(result));
+        return result;
+    }
+
+    static public BigInteger arrayProduct(BigInteger[] array) {
+        BigInteger result = BigInteger.ONE;
+        for (BigInteger element : array) {
+            result = result.multiply(element);
+        }
+        return result;
+    }
+
+    static public BigInteger[] toBigIntegerArray(long[] array) {
+        BigInteger[] result = new BigInteger[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = BigInteger.valueOf(array[i]);
+        }
         return result;
     }
 }
