@@ -10,6 +10,7 @@ service WorkerService {
   rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
+  rpc shutDownWorker(StdRequest) returns (StdResponse) {}
 
   /* Generate Modulus utilities */
   rpc generateModulusPiece(StdRequest) returns (StdResponse) {}

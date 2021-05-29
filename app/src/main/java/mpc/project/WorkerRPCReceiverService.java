@@ -55,6 +55,13 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     }
 
     @Override
+    public void shutDownWorker(StdRequest request, StreamObserver<StdResponse> responseObserver){
+        String shutDownMessage = new String((request.getContents().toByteArray()));
+        System.out.println("Shutting down worker by shutDown RPC request, message: " + shutDownMessage);
+        System.exit(0);
+    }
+
+    @Override
     public void generateModulusPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         // id is used for bitNum now, not id
         int bitNum = request.getId();

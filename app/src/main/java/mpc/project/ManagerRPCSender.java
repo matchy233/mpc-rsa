@@ -34,6 +34,7 @@ public class ManagerRPCSender {
                 @Override
                 public void onError(Throwable t) {
                     System.out.println("RPC error: " + t.getMessage());
+                    manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
                     System.exit(-1);
                 }
 
@@ -58,6 +59,7 @@ public class ManagerRPCSender {
             @Override
             public void onError(Throwable t) {
                 System.out.println("Primality test RPC error: " + t.getMessage());
+                manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
                 System.exit(-1);
             }
 
@@ -77,6 +79,7 @@ public class ManagerRPCSender {
             @Override
             public void onError(Throwable t) {
                 System.out.println("generate Key RPC error: " + t.getMessage());
+                manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
                 System.exit(-1);
             }
 
@@ -97,6 +100,7 @@ public class ManagerRPCSender {
             @Override
             public void onError(Throwable t) {
                 System.out.println("RPC error: " + t.getMessage());
+                manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
                 System.exit(-1);
             }
 
@@ -125,5 +129,29 @@ public class ManagerRPCSender {
                     public void onCompleted() {
                     }
                 });
+    }
+
+    public void sendShutDownWorkerRequest(int id, String shutDownMessage){
+        stubs[id-1].shutDownWorker(RpcUtility.Request.newStdRequest(id, shutDownMessage),
+                new StreamObserver<StdResponse>() {
+                    @Override
+                    public void onNext(StdResponse value) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("send shutDownRequest error: " + t.getMessage());
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                    }
+                });
+    }
+
+    public void broadcastShutDownWorkerRequest(String shutDownMessage){
+        for(int i = 1; i <= manager.getClusterSize(); i++){
+            sendShutDownWorkerRequest(i, shutDownMessage);
+        }
     }
 }

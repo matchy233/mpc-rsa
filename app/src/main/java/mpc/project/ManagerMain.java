@@ -26,6 +26,11 @@ public class ManagerMain {
     private ArrayList<String> addressBook;
     private String selfAddress;
     final private ManagerRPCSender rpcSender = new ManagerRPCSender(this);
+
+    public ManagerRPCSender getRpcSender() {
+        return rpcSender;
+    }
+
     final private ManagerDataReceiver dataReceiver = new ManagerDataReceiver(this);
 
     public ManagerDataReceiver getDataReceiver() {
