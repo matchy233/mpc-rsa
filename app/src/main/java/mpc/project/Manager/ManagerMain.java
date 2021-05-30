@@ -1,13 +1,14 @@
-package mpc.project;
+package mpc.project.Manager;
 
 import io.grpc.*;
-import io.grpc.stub.StreamObserver;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
+import mpc.project.StdRequest;
+import mpc.project.WorkerServiceGrpc;
 import mpc.project.util.Key;
 import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
