@@ -57,21 +57,22 @@ public class MathUtility {
         return result;
     }
 
-    static public BigInteger[] genRandBigPolynomial(int size, BigInteger lessThanThis, Random rnd){
+    static public BigInteger[] genRandBigPolynomial(int size, BigInteger lessThanThis, Random rnd) {
         BigInteger[] result = new BigInteger[size];
-        for(int i = 0; i < result.length; i++){
+        for (int i = 0; i < result.length; i++) {
             result[i] = genRandBig(lessThanThis, rnd);
         }
         return result;
     }
 
-    static public BigInteger polynomialResult(BigInteger[] poly, BigInteger input) {
+    static public BigInteger polynomialResult(BigInteger[] poly, BigInteger input, BigInteger randomPrime) {
         BigInteger result = BigInteger.valueOf(0);
         for (int i = 0; i < poly.length; i++) {
             // Computes a_i \times x^i
-            result = result.add(poly[i].multiply(input.pow(i)));
+            result = result.add(
+                    (poly[i].multiply(input.pow(i))).mod(randomPrime));
         }
-        return result;
+        return result.mod(randomPrime);
     }
 
     static public BigInteger[] generateRandomSumArray(BigInteger sum, int size, Random rnd) {

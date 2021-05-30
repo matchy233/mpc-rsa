@@ -79,7 +79,8 @@ public class WorkerMain {
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new WorkerRPCReceiverService(this))
-                    .build().start();
+                    .build()
+                    .start();
             System.out.println("Waiting for manager to connect");
             this.server.awaitTermination();
         } catch (Exception e) {
@@ -134,17 +135,17 @@ public class WorkerMain {
 
         BigInteger[] pArr_tmp = new BigInteger[clusterSize];
         for (int i = 0; i < clusterSize; i++) {
-            pArr_tmp[i] = MathUtility.polynomialResult(polyF, BigInteger.valueOf(i + 1));
+            pArr_tmp[i] = MathUtility.polynomialResult(polyF, BigInteger.valueOf(i + 1), randomPrime);
         }
 
         BigInteger[] qArr_tmp = new BigInteger[clusterSize];
         for (int i = 0; i < clusterSize; i++) {
-            qArr_tmp[i] = MathUtility.polynomialResult(polyG, BigInteger.valueOf(i + 1));
+            qArr_tmp[i] = MathUtility.polynomialResult(polyG, BigInteger.valueOf(i + 1), randomPrime);
         }
 
         BigInteger[] hArr_tmp = new BigInteger[clusterSize];
         for (int i = 0; i < clusterSize; i++) {
-            hArr_tmp[i] = MathUtility.polynomialResult(polyH, BigInteger.valueOf(i + 1));
+            hArr_tmp[i] = MathUtility.polynomialResult(polyH, BigInteger.valueOf(i + 1), randomPrime);
         }
 
         for (int i = 1; i <= clusterSize; i++) {
@@ -154,9 +155,10 @@ public class WorkerMain {
 
     private void generateNPiece(BigInteger randomPrime) {
         dataReceiver.waitPHQ();
-        BigInteger nPiece = (MathUtility.arraySum(pArr)
-                .multiply(MathUtility.arraySum(qArr)))
-                .add(MathUtility.arraySum(hArr))
+        // [ \sum(p_arr).mod(P) * \sum(q_arr).mod(P) + \sum(h_arr).mod(P) ].mod(P)
+        BigInteger nPiece = (MathUtility.arraySum(pArr).mod(randomPrime)
+                .multiply(MathUtility.arraySum(qArr).mod(randomPrime))).mod(randomPrime)
+                .add(MathUtility.arraySum(hArr).mod(randomPrime))
                 .mod(randomPrime);
         for (int i = 1; i <= clusterSize; i++) {
             rpcSender.sendNPiece(i, nPiece);
@@ -173,7 +175,7 @@ public class WorkerMain {
         }
         key.setN(N.toBigInteger().mod(randomPrime));
         RSA.init(key.getN());
-        System.out.println("The modulus is :" + key.getN());
+        System.out.println("The modulus is: " + key.getN());
     }
 
     public boolean primalityTestWaiting = false;
