@@ -3,12 +3,14 @@
 ![GitHub top language](https://img.shields.io/github/languages/top/7942jun/mpc-project?color=orange) ![last commit](https://img.shields.io/github/last-commit/7942jun/mpc-project)
 
 Secure Multiparty Computing (MPC) is a heated research field in cryptography with the goal of creating methods for
-multiple parties to jointly contribute to the computation while keeping the input private to each party. RSA encryption
-algorithm, which requires lots of computations involving multiplication and modulus on large prime numbers, is suitable
-to be modified to working in an MPC scenario. This project aims to implement a containerized MPC module for RSA keypair
-generation and message decryption using `Java`.
+multiple parties to jointly contribute to the computation while keeping the input private to each party.
 
-Project collaborators are Gyeonjun Lee ([7942jun](https://github.com/7942jun)) Hexiang
+RSA encryption algorithm, which requires lots of computations involving multiplication and modulus on large prime
+numbers, is suitable to be modified to working in an MPC scenario.
+
+This project aims to implement a containerized MPC module for RSA keypair generation and message decryption.
+
+Project collaborators are Gyeonjun Lee ([7942jun](https://github.com/7942jun)), Hexiang
 Geng ([CuriousLocky](https://github.com/CuriousLocky)) and Minghang Lee ([Matchy](https://github.com/matchy233)).
 
 ## Build and Run the Project
@@ -58,3 +60,10 @@ Here are the 7 rules for writing a good Tim Pope style commit message:
 7. Describe *what* was done and why, but not *how*.
 
 Read [this nice blog post](https://chris.beams.io/posts/git-commit/) for explanation on why we set up those rules.
+
+## Reference
+
+1. Malkin, M., Wu, T. D., & Boneh, D. (1999, February). Experimenting with Shared Generation of RSA Keys. In **NDSS** (*
+   The Network and Distributed System Security Symposium*).
+2. Boneh, D., & Franklin, M. (1997, August). Efficient generation of shared RSA keys. In **CRYPTO** (*Annual
+   international cryptology conference*) (pp. 425-439). Springer, Berlin, Heidelberg.
