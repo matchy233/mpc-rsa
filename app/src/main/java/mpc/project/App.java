@@ -36,7 +36,8 @@ public class App {
     }
 
     static boolean managerMode = false;
-    static int portNum = 50083;
+    static int portNum = 5083;
+    static int keyBitLength = 1024;
 
     private static void parseArguments(String[] args) throws UnsupportedArgException {
         for (int i = 0; i < args.length; i++) {
@@ -51,6 +52,12 @@ public class App {
             } else if (args[i].equals("--port") || args[i].equals("-p")) {
                 try {
                     portNum = Integer.parseInt(args[i + 1]);
+                } catch (NumberFormatException e) {
+                    throw new UnsupportedArgException("unsupported port number");
+                }
+            } else if (args[i].equals("--keyBitLength") || args[i].equals("-k")) {
+                try {
+                    keyBitLength = Integer.parseInt(args[i + 1]);
                 } catch (NumberFormatException e) {
                     throw new UnsupportedArgException("unsupported port number");
                 }
@@ -70,7 +77,7 @@ public class App {
             return;
         }
         if (managerMode) {
-            ManagerMain managerMain = new ManagerMain(portNum);
+            ManagerMain managerMain = new ManagerMain(portNum, keyBitLength);
             managerMain.run();
         } else {
             WorkerMain workerMain = new WorkerMain(portNum);
