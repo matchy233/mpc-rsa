@@ -13,11 +13,14 @@ service WorkerService {
   rpc shutDownWorker(StdRequest) returns (StdResponse) {}
 
   /* Generate Modulus utilities */
+  rpc hostModulusGeneration(StdRequest) returns (StdResponse) {}
   rpc generateModulusPiece(StdRequest) returns (StdResponse) {}
   rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
+  rpc abortModulusGeneration(StdRequest) returns (StdResponse) {}
 
   /* Primality test utilities */
+  rpc hostPrimalityTest(StdRequest) returns (StdResponse) {}
   rpc primalityTest(StdRequest) returns (PrimalityTestResponse) {}
 
   /* Private key generation utilities */
@@ -38,6 +41,7 @@ message StdRequest {
   int32 id = 1;       // for specifying the sender's id
   // in formCluster, it marks the receiving worker's id
   bytes contents = 2; // for containing the information, usually a BigNumber
+  int64 workflowID = 3; // for concurrent data receiving
 }
 
 message ExchangePrimespqhRequest {
@@ -45,6 +49,7 @@ message ExchangePrimespqhRequest {
   bytes p = 2;
   bytes q = 3;
   bytes h = 4;
+  int64 workflowID = 5;
 }
 
 message StdResponse {

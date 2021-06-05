@@ -1,178 +1,280 @@
 package mpc.project.Worker;
 
 import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorkerDataReceiver {
     WorkerMain worker;
 
     public WorkerDataReceiver(WorkerMain worker) {
         this.worker = worker;
-        try {
-            this.primesReadyFlag.acquire();
-            this.nPiecesReadyFlag.acquire();
-            this.gammaReadyFlag.acquire();
-            this.gammaSumReadyFlag.acquire();
-            this.verificationFactorsReadyFlag.acquire();
-            this.shadowsReadyFlag.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 
-    public BigInteger[] pArr;          // An array holding p_i ( i \in [1, clusterNum])
-    public BigInteger[] qArr;          // An array holding q_i ( i \in [1, clusterNum])
-    public BigInteger[] hArr;          // An array holding h_i ( i \in [1, clusterNum])
+    public void cleanupModulusGenerationBucket() {
+        modulusReadyFlagMap.clear();
+        modulusMap.clear();
+        primesReadyFlagMap.clear();
+        pArrMap.clear();
+        qArrMap.clear();
+        hArrMap.clear();
+        nPieceReadyFlagMap.clear();
+        nPieceArrMap.clear();
+    }
 
-    public BigInteger[] nPieceArr;
-    public BigInteger[] gammaArr;
-    public BigInteger[] gammaSumArr;
+    private final Object modulusMapLock = new Object();
+    private final Map<Long, Semaphore> modulusReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger> modulusMap = new ConcurrentHashMap<>();
 
-    public final Object exchangeGammaLock = new Object();
-    //    private Lock gammaReadyFlag = new ReentrantLock();
-    private final Semaphore gammaReadyFlag = new Semaphore(1);
-    private int exchangeGammaCounter = 0;
-
-    public final Object exchangeGammaSumLock = new Object();
-    private final Semaphore gammaSumReadyFlag = new Semaphore(1);
-    private int exchangeGammaSumCounter = 0;
-
-
-    public final Object exchangePrimesLock = new Object();
-    private final Semaphore primesReadyFlag = new Semaphore(1);
-    private int exchangePrimesCounter = 0;
-
-    public final Object exchangeNPiecesLock = new Object();
-    private final Semaphore nPiecesReadyFlag = new Semaphore(1);
-    private int exchangeNPiecesCounter = 0;
-
-    private final Object shadowReceivingLock = new Object();
-    private final Semaphore shadowsReadyFlag = new Semaphore(1);
-    private int shadowReceivingCounter = 0;
-
-    private final Object verificationFactorsLock = new Object();
-    private final Semaphore verificationFactorsReadyFlag = new Semaphore(1);
-    private int verificationFactorsCounter = 0;
-
-    public void receivePHQ(int id, BigInteger p, BigInteger q, BigInteger h) {
-        int i = id - 1;
-        pArr[i] = p;
-        qArr[i] = q;
-        hArr[i] = h;
-        synchronized (exchangePrimesLock) {
-            exchangePrimesCounter++;
-            if (exchangePrimesCounter == worker.getClusterSize()) {
-                primesReadyFlag.release();
-                exchangePrimesCounter = 0;
+    private void emptyCheckModulus(long workflowID) {
+        synchronized (modulusMapLock) {
+            if (!modulusReadyFlagMap.containsKey(workflowID)) {
+                modulusReadyFlagMap.put(workflowID, new Semaphore(0));
             }
         }
     }
 
-    public void waitPHQ() {
+    public void receiveModulus(BigInteger modulus, long workflowID) {
+        emptyCheckModulus(workflowID);
+        modulusMap.putIfAbsent(workflowID, modulus);
+    }
+
+    public void countModulus(long workflowID) {
+        modulusReadyFlagMap.get(workflowID).release();
+    }
+
+    public BigInteger waitModulus(long workflowID) {
+        emptyCheckModulus(workflowID);
         try {
-            primesReadyFlag.acquire();
+            modulusReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        BigInteger result = modulusMap.get(workflowID);
+        modulusMap.remove(workflowID);
+        return result;
     }
 
-    public void receiveNPiece(int id, BigInteger nPiece) {
-        int i = id - 1;
-        nPieceArr[i] = nPiece;
-        synchronized (exchangeNPiecesLock) {
-            exchangeNPiecesCounter++;
-            if (exchangeNPiecesCounter == worker.getClusterSize()) {
-                nPiecesReadyFlag.release();
-                exchangeNPiecesCounter = 0;
+    private final Object primesLock = new Object();
+    private final Map<Long, Semaphore> primesReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> pArrMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> qArrMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> hArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckPrimes(long workflowID) {
+        synchronized (primesLock) {
+            if (!primesReadyFlagMap.containsKey(workflowID)) {
+                primesReadyFlagMap.put(workflowID, new Semaphore(0));
+                pArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
+                qArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
+                hArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
             }
         }
     }
 
-    public void waitNPieces() {
+    public void receivePHQ(int id, BigInteger p, BigInteger q, BigInteger h, long workflowID) {
+        emptyCheckPrimes(workflowID);
+        pArrMap.get(workflowID)[id - 1] = p;
+        qArrMap.get(workflowID)[id - 1] = q;
+        hArrMap.get(workflowID)[id - 1] = h;
+        primesReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitPHQ(long workflowID, BigInteger[] pArr, BigInteger[] qArr, BigInteger[] hArr) {
+        emptyCheckPrimes(workflowID);
         try {
-            nPiecesReadyFlag.acquire();
+            primesReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        Arrays.setAll(pArr, i -> pArrMap.get(workflowID)[i]);
+        Arrays.setAll(qArr, i -> qArrMap.get(workflowID)[i]);
+        Arrays.setAll(hArr, i -> hArrMap.get(workflowID)[i]);
     }
 
-    public void receiveGamma(int id, BigInteger gamma) {
-        int i = id - 1;
-        gammaArr[i] = gamma;
-        synchronized (exchangeGammaLock) {
-            exchangeGammaCounter++;
-            if (exchangeGammaCounter == worker.getClusterSize()) {
-                gammaReadyFlag.release();
-                exchangeGammaCounter = 0;
+    private final Object nPieceLock = new Object();
+    private final Map<Long, Semaphore> nPieceReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> nPieceArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckNPiece(long workflowID) {
+        synchronized (nPieceLock) {
+            if (!nPieceReadyFlagMap.containsKey(workflowID)) {
+                nPieceReadyFlagMap.put(workflowID, new Semaphore(0));
+                nPieceArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
             }
         }
     }
 
-    public void waitGamma() {
+    public void receiveNPiece(int id, BigInteger nPiece, long workflowID) {
+        emptyCheckNPiece(workflowID);
+        nPieceArrMap.get(workflowID)[id - 1] = nPiece;
+        nPieceReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitNPieces(long workflowID, BigInteger[] nPieceArr) {
+        emptyCheckNPiece(workflowID);
         try {
-            gammaReadyFlag.acquire();
+            nPieceReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        Arrays.setAll(nPieceArr, i -> nPieceArrMap.get(workflowID)[i]);
     }
 
-    public void receiveGammaSum(int id, BigInteger gammaSum) {
-        int i = id - 1;
-        gammaSumArr[i] = gammaSum;
-        synchronized (exchangeGammaSumLock) {
-            exchangeGammaSumCounter++;
-            if (exchangeGammaSumCounter == worker.getClusterSize()) {
-                gammaSumReadyFlag.release();
-                exchangeGammaSumCounter = 0;
+    private final Object gammaLock = new Object();
+    private final Map<Long, Semaphore> gammaReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> gammaArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckGamma(long workflowID) {
+        synchronized (gammaLock) {
+            if (!gammaReadyFlagMap.containsKey(workflowID)) {
+                gammaReadyFlagMap.put(workflowID, new Semaphore(0));
+                gammaArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
             }
         }
     }
 
-    public void waitGammaSum() {
-        try {
-            gammaSumReadyFlag.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+    private void cleanGammaBucket(long workflowID) {
+        synchronized (gammaLock) {
+            gammaReadyFlagMap.remove(workflowID);
+            gammaArrMap.remove(workflowID);
         }
     }
 
-    public void receiveShadow(int id, String factor, String[] resultBucket) {
-        int j = id - 1;
-        resultBucket[j] = factor;
-        synchronized (shadowReceivingLock) {
-            shadowReceivingCounter++;
-            if (shadowReceivingCounter == worker.getClusterSize()) {
-                shadowsReadyFlag.release();
-                shadowReceivingCounter = 0;
+    public void receiveGamma(int id, BigInteger gamma, long workflowID) {
+        emptyCheckGamma(workflowID);
+        gammaArrMap.get(workflowID)[id - 1] = gamma;
+        gammaReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitGamma(long workflowID, BigInteger[] gammaArr) {
+        emptyCheckGamma(workflowID);
+        try {
+            gammaReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Arrays.setAll(gammaArr, i -> gammaArrMap.get(workflowID)[i]);
+        cleanGammaBucket(workflowID);
+    }
+
+    private final Object gammaSumLock = new Object();
+    private final Map<Long, Semaphore> gammaSumReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> gammaSumArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckGammaSum(long workflowID) {
+        synchronized (gammaSumLock) {
+            if (!gammaSumReadyFlagMap.containsKey(workflowID)) {
+                gammaSumReadyFlagMap.put(workflowID, new Semaphore(0));
+                gammaSumArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
             }
         }
     }
 
-    public void waitShadows() {
-        try {
-            shadowsReadyFlag.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+    private void cleanGammaSumBucket(long workflowID) {
+        synchronized (gammaSumLock) {
+            gammaSumReadyFlagMap.remove(workflowID);
+            gammaSumArrMap.remove(workflowID);
         }
     }
 
-    public void receiveVerificationFactor(int id, BigInteger factor, BigInteger[] resultBucket) {
-        int j = id - 1;
-        resultBucket[j] = factor;
-        synchronized (verificationFactorsLock) {
-            verificationFactorsCounter++;
-            if (verificationFactorsCounter == worker.getClusterSize()) {
-                verificationFactorsReadyFlag.release();
-                verificationFactorsCounter = 0;
+    public void receiveGammaSum(int id, BigInteger gammaSum, long workflowID) {
+        emptyCheckGammaSum(workflowID);
+        gammaSumArrMap.get(workflowID)[id - 1] = gammaSum;
+        gammaSumReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitGammaSum(long workflowID, BigInteger[] gammaSumArr) {
+        emptyCheckGammaSum(workflowID);
+        try {
+            gammaSumReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Arrays.setAll(gammaSumArr, i -> gammaArrMap.get(workflowID)[i]);
+        cleanGammaSumBucket(workflowID);
+    }
+
+    private final Object shadowLock = new Object();
+    private final Map<Long, Semaphore> shadowReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, String[]> shadowArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckShadow(long workflowID) {
+        synchronized (shadowLock) {
+            if (!shadowReadyFlagMap.containsKey(workflowID)) {
+                shadowReadyFlagMap.put(workflowID, new Semaphore(0));
+                shadowArrMap.put(workflowID, new String[worker.getClusterSize()]);
             }
         }
     }
 
-    public void waitVerificationFactors() {
+    private void cleanShadowBucket(long workflowID) {
+        synchronized (shadowLock) {
+            shadowReadyFlagMap.remove(workflowID);
+            shadowArrMap.remove(workflowID);
+        }
+    }
+
+    public void receiveShadow(int id, String shadow, long workflowID) {
+        emptyCheckShadow(workflowID);
+        shadowArrMap.get(workflowID)[id - 1] = shadow;
+    }
+
+    public void countShadow(long workflowID) {
+        shadowReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitShadow(long workflowID, String[] shadowArr) {
+        emptyCheckShadow(workflowID);
         try {
-            verificationFactorsReadyFlag.acquire();
+            shadowReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        Arrays.setAll(shadowArr, i -> shadowArrMap.get(workflowID)[i]);
+        cleanShadowBucket(workflowID);
+    }
+
+    private final Object verificationFactorLock = new Object();
+    private final Map<Long, Semaphore> verificationFactorReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> verificationFactorArrMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckVerificationFactor(long workflowID) {
+        synchronized (verificationFactorLock) {
+            if (!verificationFactorReadyFlagMap.containsKey(workflowID)) {
+                verificationFactorReadyFlagMap.put(workflowID, new Semaphore(0));
+                verificationFactorArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
+            }
+        }
+    }
+
+    private void cleanVerificationFactorBucket(long workflowID) {
+        synchronized (verificationFactorLock) {
+            verificationFactorReadyFlagMap.remove(workflowID);
+            verificationFactorArrMap.remove(workflowID);
+        }
+    }
+
+    public void receiveVerificationFactor(int id, BigInteger verificationFactor, long workflowID) {
+        emptyCheckVerificationFactor(workflowID);
+        verificationFactorArrMap.get(workflowID)[id - 1] = verificationFactor;
+    }
+
+    public void countVerificationFactor(long workflowID) {
+        verificationFactorReadyFlagMap.get(workflowID).release();
+    }
+
+    public void waitVerificationFactor(long workflowID, BigInteger[] verificationFactorArr) {
+        emptyCheckVerificationFactor(workflowID);
+        try {
+            verificationFactorReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Arrays.setAll(verificationFactorArr, i -> verificationFactorArrMap.get(workflowID)[i]);
+        cleanVerificationFactorBucket(workflowID);
     }
 }

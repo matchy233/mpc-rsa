@@ -1,5 +1,11 @@
 package mpc.project.Manager;
 
+import mpc.project.util.Pair;
+import org.checkerframework.checker.units.qual.C;
+
+import java.math.BigInteger;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 
 public class ManagerDataReceiver {
@@ -9,8 +15,6 @@ public class ManagerDataReceiver {
         this.manager = manager;
         try {
             networkFormedFlag.acquire();
-            modulusGenerationFlag.acquire();
-            primalityTestCompleteFlag.acquire();
             privateKeyGenerationFlag.acquire();
             shadowCollectedFlag.acquire();
         } catch (InterruptedException e) {
@@ -40,43 +44,62 @@ public class ManagerDataReceiver {
         }
     }
 
-    final Object modulusGenerationLock = new Object();
-    final private Semaphore modulusGenerationFlag = new Semaphore(1);
-    volatile private int modulusGenerationCounter = 0;
+    private final Semaphore modulusGenerationFlag = new Semaphore(0);
+    private Pair<BigInteger, Long> modulusWorkflowPair;
 
-    public void receiveModulusGenerationResponse() {
-        synchronized (modulusGenerationLock) {
-            modulusGenerationCounter++;
-            if (modulusGenerationCounter == manager.getClusterSize()) {
-                modulusGenerationCounter = 0;
-                modulusGenerationFlag.release();
-            }
-        }
+    public void receiveModulusGenerationResponse(BigInteger modulus, long workflowID) {
+        modulusWorkflowPair = new Pair<>(modulus, workflowID);
+        modulusGenerationFlag.release();
     }
 
-    public void waitModulusGeneration() {
+    public Pair<BigInteger, Long> waitModulusGeneration() {
         try {
             modulusGenerationFlag.acquire();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        Pair<BigInteger, Long> result = new Pair<>(
+                modulusWorkflowPair.first,
+                modulusWorkflowPair.second
+        );
+        return result;
     }
 
-    final private Semaphore primalityTestCompleteFlag = new Semaphore(1);
-    volatile private boolean primalityTestResult;
+    private final Object primalityTestLock = new Object();
+    private final Map<Long, Semaphore> primalityTestFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, Boolean> primalityTestResultMap = new ConcurrentHashMap<>();
 
-    public void receivePrimalityTestResult(boolean primalityTestResult) {
-        this.primalityTestResult = primalityTestResult;
-        primalityTestCompleteFlag.release();
+    public void checkEmptyPrimalityTest(long workflowID){
+        synchronized (primalityTestLock){
+            if(!primalityTestFlagMap.containsKey(workflowID)){
+                primalityTestFlagMap.put(workflowID, new Semaphore(0));
+            }
+        }
     }
 
-    public boolean waitPrimalityTestResult() {
+    public void cleanPrimalityTestBucket(long workflowID){
+        synchronized (primalityTestLock){
+            primalityTestFlagMap.remove(workflowID);
+            primalityTestResultMap.remove(workflowID);
+        }
+    }
+
+    public void receivePrimalityTestResult(boolean primalityTestResult, long workflowID) {
+        checkEmptyPrimalityTest(workflowID);
+        primalityTestResultMap.put(workflowID, primalityTestResult);
+        primalityTestFlagMap.get(workflowID).release();
+    }
+
+    public boolean waitPrimalityTestResult(long workflowID) {
+        checkEmptyPrimalityTest(workflowID);
         try {
-            primalityTestCompleteFlag.acquire();
+            primalityTestFlagMap.get(workflowID).acquire();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return primalityTestResult;
+        boolean result = primalityTestResultMap.get(workflowID);
+        cleanPrimalityTestBucket(workflowID);
+        return result;
     }
 
     final Object privateKeyGenerationLock = new Object();

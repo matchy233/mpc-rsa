@@ -48,14 +48,13 @@ public class ManagerRPCSender {
         });
     }
 
-    public void sendPrimalityTestRequest(int id) {
-        StdRequest request = RpcUtility.Request.newStdRequest(0);
-        stubs[id - 1].primalityTest(request, new StreamObserver<PrimalityTestResponse>() {
+    public void sendHostPrimalityTestRequest(int id, long workflowID) {
+        StdRequest request = RpcUtility.Request.newStdRequest(0, workflowID);
+        stubs[id - 1].hostPrimalityTest(request, new StreamObserver<StdResponse>() {
             @Override
-            public void onNext(PrimalityTestResponse response) {
+            public void onNext(StdResponse response) {
                 boolean primalityTestResult = (response.getId() == 1);
-                manager.getDataReceiver().receivePrimalityTestResult(primalityTestResult);
-                System.out.println("received by " + response.getId());
+                manager.getDataReceiver().receivePrimalityTestResult(primalityTestResult, workflowID);
             }
 
             @Override
@@ -91,17 +90,38 @@ public class ManagerRPCSender {
         });
     }
 
-    public void sendModulusGenerationRequest(int id, int keyBitLength, BigInteger randomPrime) {
-        StdRequest request = RpcUtility.Request.newStdRequest(keyBitLength, randomPrime);
-        stubs[id - 1].generateModulusPiece(request, new StreamObserver<StdResponse>() {
+    public void sendHostModulusGenerationRequest(int id, int keyBitLength, BigInteger randomPrime, long workflowID) {
+        StdRequest request = RpcUtility.Request.newStdRequest(keyBitLength, randomPrime, workflowID);
+        stubs[id - 1].hostModulusGeneration(request, new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
-                manager.getDataReceiver().receiveModulusGenerationResponse();
+                BigInteger modulus = new BigInteger(response.getContents().toByteArray());
+                manager.getDataReceiver().receiveModulusGenerationResponse(modulus, workflowID);
             }
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("RPC error: " + t.getMessage());
+                System.out.println("send host modulus generation request error: " + t.getMessage());
+                manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
+                System.exit(-1);
+            }
+
+            @Override
+            public void onCompleted() {
+            }
+        });
+    }
+
+    public void sendAbortModulusGenerationRequest(int id){
+        StdRequest request = RpcUtility.Request.newStdRequest(id);
+        stubs[id - 1].abortModulusGeneration(request, new StreamObserver<StdResponse>() {
+            @Override
+            public void onNext(StdResponse response) {
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println("send abort modulus generation request error: " + t.getMessage());
                 manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
                 System.exit(-1);
             }

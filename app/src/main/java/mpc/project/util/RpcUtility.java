@@ -23,6 +23,14 @@ public class RpcUtility {
                     .build();
         }
 
+        static public StdRequest newStdRequest(int id, BigInteger bigInt, long workflowID) {
+            return StdRequest.newBuilder()
+                    .setId(id)
+                    .setContents(ByteString.copyFrom(bigInt.toByteArray()))
+                    .setWorkflowID(workflowID)
+                    .build();
+        }
+
         static public StdRequest newStdRequest(int id, String s) {
             return StdRequest.newBuilder()
                     .setId(id)
@@ -30,8 +38,23 @@ public class RpcUtility {
                     .build();
         }
 
+        static public StdRequest newStdRequest(int id, String s, long workflowID) {
+            return StdRequest.newBuilder()
+                    .setId(id)
+                    .setContents(ByteString.copyFrom(s.getBytes()))
+                    .setWorkflowID(workflowID)
+                    .build();
+        }
+
         static public StdRequest newStdRequest(int id) {
             return StdRequest.newBuilder().setId(id).build();
+        }
+
+        static public StdRequest newStdRequest(int id, long workflowID) {
+            return StdRequest.newBuilder()
+                    .setId(id)
+                    .setWorkflowID(workflowID)
+                    .build();
         }
 
         /*
@@ -44,6 +67,16 @@ public class RpcUtility {
                     .setP(ByteString.copyFrom(p.toByteArray()))
                     .setQ(ByteString.copyFrom(q.toByteArray()))
                     .setH(ByteString.copyFrom(h.toByteArray()))
+                    .build();
+        }
+
+        static public ExchangePrimespqhRequest newExchangePrimesRequest(int id, BigInteger p, BigInteger q, BigInteger h, long workflowID) {
+            return ExchangePrimespqhRequest.newBuilder()
+                    .setId(id)
+                    .setP(ByteString.copyFrom(p.toByteArray()))
+                    .setQ(ByteString.copyFrom(q.toByteArray()))
+                    .setH(ByteString.copyFrom(h.toByteArray()))
+                    .setWorkflowID(workflowID)
                     .build();
         }
     }
@@ -61,6 +94,13 @@ public class RpcUtility {
             return StdResponse.newBuilder()
                     .setId(id)
                     .setContents(ByteString.copyFrom(s.getBytes()))
+                    .build();
+        }
+
+        static public StdResponse newStdResponse(int id, BigInteger n){
+            return StdResponse.newBuilder()
+                    .setId(id)
+                    .setContents(ByteString.copyFrom(n.toByteArray()))
                     .build();
         }
 

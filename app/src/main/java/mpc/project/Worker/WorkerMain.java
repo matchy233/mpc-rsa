@@ -5,10 +5,13 @@ import io.grpc.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 import mpc.project.util.Key;
 import mpc.project.util.MathUtility;
+import mpc.project.util.Pair;
 import mpc.project.util.RSA;
 
 public class WorkerMain {
@@ -36,13 +39,18 @@ public class WorkerMain {
         this.id = id;
     }
 
+    private volatile boolean abortModulusGeneration;
+    public void setAbortModulusGeneration(boolean abortModulusGeneration){
+        this.abortModulusGeneration = abortModulusGeneration;
+    }
+
     private final Random rnd;
 
     private int clusterSize;
 
     public void setClusterSize(int clusterSize) {
         this.clusterSize = clusterSize;
-        dataBucketInit();
+//        dataBucketInit();
     }
 
     public int getClusterSize() {
@@ -50,22 +58,26 @@ public class WorkerMain {
     }
 
     /* Variables for distributed RSA keypair generation */
-    private BigInteger p;
-    private BigInteger q;
-    private BigInteger[] pArr;          // An array holding p_i ( i \in [1, clusterNum])
-    private BigInteger[] qArr;          // An array holding q_i ( i \in [1, clusterNum])
-    private BigInteger[] hArr;          // An array holding h_i ( i \in [1, clusterNum])
-    private BigInteger[] nPieceArr;
+//    private BigInteger p;
+//    private BigInteger q;
+    private final Map<Long, BigInteger> modulusMap = new ConcurrentHashMap<>();
+    private final Map<Long, Pair<BigInteger, BigInteger>> pqMap = new ConcurrentHashMap<>();
 
     /* Rsa Key
      *    Stores exponent e, modulus N and private d
      *    public key:  <e, N>
      *    private key: <d, N>
      */
-    private Key key = new Key();
+    private final Key key = new Key();
 
     public Key getKey() {
         return key;
+    }
+
+    private void cleanupModulusGenerationMap() {
+        modulusMap.clear();
+        pqMap.clear();
+        dataReceiver.cleanupModulusGenerationBucket();
     }
 
     public WorkerMain(int portNum) {
@@ -93,35 +105,32 @@ public class WorkerMain {
         }
     }
 
-    private void dataBucketInit() {
-        pArr = new BigInteger[clusterSize];
-        qArr = new BigInteger[clusterSize];
-        hArr = new BigInteger[clusterSize];
-        nPieceArr = new BigInteger[clusterSize];
-        gammaArr = new BigInteger[clusterSize];
-        gammaSumArr = new BigInteger[clusterSize];
-
-        dataReceiver.pArr = this.pArr;
-        dataReceiver.qArr = this.qArr;
-        dataReceiver.hArr = this.hArr;
-        dataReceiver.nPieceArr = this.nPieceArr;
-        dataReceiver.gammaArr = this.gammaArr;
-        dataReceiver.gammaSumArr = this.gammaSumArr;
+    public BigInteger hostModulusGeneration(int bitNum, BigInteger randomPrime, long workflowID) {
+        boolean passPrimalityTest;
+        BigInteger result;
+        setAbortModulusGeneration(false);
+        do{
+            rpcSender.broadcastModulusGenerationRequest(bitNum, randomPrime, workflowID);
+            System.out.println("host waiting for modulus generation");
+            result = dataReceiver.waitModulus(workflowID);
+            System.out.println("modulus is " + result);
+            passPrimalityTest = primalityTestHost(workflowID);
+        }while (!abortModulusGeneration && !passPrimalityTest);
+        return result;
     }
 
-    private final Object modulusGenerationLock = new Object();
-
-    public void generateModulusPiece(int bitNum, BigInteger randomPrime) {
-        synchronized (modulusGenerationLock) {
-            p = BigInteger.probablePrime(bitNum, rnd);
-            q = BigInteger.probablePrime(bitNum, rnd);
-            generateFGH(randomPrime);
-            generateNPiece(randomPrime);
-            generateN(randomPrime);
-        }
+    public BigInteger generateModulus(int bitNum, BigInteger randomPrime, long workflowID) {
+        BigInteger p = BigInteger.probablePrime(bitNum, rnd);
+        BigInteger q = BigInteger.probablePrime(bitNum, rnd);
+        generateFGH(p, q, randomPrime, workflowID);
+        generateNPiece(randomPrime, workflowID);
+        BigInteger modulus = generateN(randomPrime, workflowID);
+        modulusMap.put(workflowID, modulus);
+        pqMap.put(workflowID, new Pair<>(p, q));
+        return modulus;
     }
 
-    private void generateFGH(BigInteger randomPrime) {
+    private void generateFGH(BigInteger p, BigInteger q, BigInteger randomPrime, long workflowID) {
         int l = (clusterSize - 1) / 2;
 
         BigInteger[] polyF = MathUtility.genRandBigPolynomial(l, randomPrime, rnd);
@@ -149,84 +158,97 @@ public class WorkerMain {
         }
 
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendPQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1]);
+            rpcSender.sendPQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1], workflowID);
         }
     }
 
-    private void generateNPiece(BigInteger randomPrime) {
-        dataReceiver.waitPHQ();
-        // [ \sum(p_arr).mod(P) * \sum(q_arr).mod(P) + \sum(h_arr).mod(P) ].mod(P)
+    private void generateNPiece(BigInteger randomPrime, long workflowID) {
+        BigInteger[] pArr = new BigInteger[clusterSize];
+        BigInteger[] qArr = new BigInteger[clusterSize];
+        BigInteger[] hArr = new BigInteger[clusterSize];
+        dataReceiver.waitPHQ(workflowID, pArr, qArr, hArr);
         BigInteger nPiece = (MathUtility.arraySum(pArr).mod(randomPrime)
                 .multiply(MathUtility.arraySum(qArr).mod(randomPrime))).mod(randomPrime)
                 .add(MathUtility.arraySum(hArr).mod(randomPrime))
                 .mod(randomPrime);
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendNPiece(i, nPiece);
+            rpcSender.sendNPiece(i, nPiece, workflowID);
         }
     }
 
-    private void generateN(BigInteger randomPrime) {
-        dataReceiver.waitNPieces();
+    private BigInteger generateN(BigInteger randomPrime, long workflowID) {
+        BigInteger[] nPieceArr = new BigInteger[clusterSize];
+        dataReceiver.waitNPieces(workflowID, nPieceArr);
         double[] values = MathUtility.computeValuesOfLagrangianPolynomialsAtZero(clusterSize);
         BigDecimal N = new BigDecimal(0);
         for (int i = 0; i < nPieceArr.length; i++) {
             BigDecimal Ni = new BigDecimal(nPieceArr[i]);
             N = N.add(Ni.multiply(BigDecimal.valueOf(values[i])));
         }
-        key.setN(N.toBigInteger().mod(randomPrime));
-        RSA.init(key.getN());
-        System.out.println("The modulus is: " + key.getN());
+        BigInteger modulus = N.toBigInteger().mod(randomPrime);
+        return modulus;
     }
 
-    public boolean primalityTestWaiting = false;
+    public boolean primalityTestHost(long workflowID) {
+        if (!modulusMap.containsKey(workflowID)) {
+            System.out.println("workflowID not found! id: " + workflowID);
+            return false;
+        }
+        BigInteger modulus = modulusMap.get(workflowID);
+        BigInteger g = MathUtility.genRandBig(modulus, rnd);
 
-    public boolean primalityTestHost() {
-        BigInteger g = MathUtility.genRandBig(key.getN(), rnd);
 
         BigInteger[] verificationArray = new BigInteger[this.clusterSize];
 
-        primalityTestWaiting = true;
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendPrimalityTestRequest(i, g, verificationArray);
+            rpcSender.sendPrimalityTestRequest(i, g, workflowID);
         }
-        dataReceiver.waitVerificationFactors();
-        primalityTestWaiting = false;
+        dataReceiver.waitVerificationFactor(workflowID, verificationArray);
 
         BigInteger v = BigInteger.valueOf(1);
         for (int i = 1; i < clusterSize; i++) {
             v = v.multiply(verificationArray[i]);
         }
 
-        return verificationArray[0].equals(v.mod(key.getN()));
+        return verificationArray[0].equals(v.mod(modulus));
     }
 
-    public BigInteger primalityTestGuest(BigInteger g) {
-        // Todo: change server 1 every time to do load balancing
-        if (id == 1) {
-            BigInteger exponent = key.getN().subtract(p).subtract(q).add(BigInteger.valueOf(1));
-            return g.modPow(exponent, key.getN());
+    public BigInteger primalityTestGuest(int hostID, BigInteger g, long workflowID) {
+        Pair<BigInteger, BigInteger> pair = pqMap.get(workflowID);
+        BigInteger p = pair.first;
+        BigInteger q = pair.second;
+        BigInteger modulus = modulusMap.get(workflowID);
+        if (id == hostID) {
+            BigInteger exponent = modulus.subtract(p).subtract(q).add(BigInteger.valueOf(1));
+            return g.modPow(exponent, modulus);
         }
-        return g.modPow(p.add(q), key.getN());
+        return g.modPow(p.add(q), modulus);
     }
 
-    BigInteger[] gammaArr;
-    BigInteger[] gammaSumArr;
-
-    public void generatePrivateKey() {
+    public void generatePrivateKey(long workflowID) {
         // Todo: change server 1 every time to do load balancing
+        Pair<BigInteger, BigInteger> pair = pqMap.get(workflowID);
+        BigInteger p = pair.first;
+        BigInteger q = pair.second;
+        BigInteger modulus = modulusMap.get(workflowID);
+        cleanupModulusGenerationMap();
+        key.setN(modulus);
+        RSA.init(modulus);
         BigInteger phi = (id == 1) ?
                 key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
         BigInteger[] gammaArrLocal = MathUtility.generateRandomSumArray(phi, clusterSize, rnd);
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendGamma(i, gammaArrLocal[i - 1]);
+            rpcSender.sendGamma(i, gammaArrLocal[i - 1], workflowID);
         }
-        dataReceiver.waitGamma();
+        BigInteger[] gammaArr = new BigInteger[clusterSize];
+        dataReceiver.waitGamma(workflowID, gammaArr);
         BigInteger gammaSum = MathUtility.arraySum(gammaArr);
+        BigInteger[] gammaSumArr = new BigInteger[clusterSize];
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendGammaSum(i, gammaSum);
+            rpcSender.sendGammaSum(i, gammaSum, clusterSize);
         }
-        dataReceiver.waitGammaSum();
+        dataReceiver.waitGammaSum(clusterSize, gammaSumArr);
         BigInteger l = MathUtility.arraySum(gammaSumArr).mod(key.getE());
 
         BigDecimal zeta = BigDecimal.ONE.divide(new BigDecimal(l), RoundingMode.HALF_UP)
@@ -241,7 +263,7 @@ public class WorkerMain {
         if (id == 1) {
             String testMessage = "test";
             String encryptedTestMessage = RSA.encrypt(testMessage, key);
-            String[] decryptionResults = trialDecryption(encryptedTestMessage);
+            String[] decryptionResults = trialDecryption(encryptedTestMessage, workflowID);
             boolean foundR = false;
             for (int r = 0; r < clusterSize; r++) {
                 // Fixme: I'm not sure if this is implemented correctly
@@ -261,13 +283,13 @@ public class WorkerMain {
         }
     }
 
-    private String[] trialDecryption(String encryptedMessage) {
+    private String[] trialDecryption(String encryptedMessage, long workflowID) {
         String[] result = new String[clusterSize];
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendDecryptRequest(i, encryptedMessage, result);
+            rpcSender.sendDecryptRequest(i, encryptedMessage, workflowID);
         }
         System.out.println("Waiting for trial decryption to complete");
-        dataReceiver.waitShadows();
+        dataReceiver.waitShadow(workflowID, result);
         return result;
     }
 }

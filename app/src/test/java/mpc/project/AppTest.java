@@ -3,12 +3,25 @@
  */
 package mpc.project;
 
+import junit.framework.TestCase;
+import mpc.project.util.MathUtility;
 import org.junit.Test;
+
+import java.math.BigInteger;
+import java.util.Random;
+
 import static org.junit.Assert.*;
 
-public class AppTest {
+public class AppTest{
     //@Test public void testAppHasAGreeting() {
         //App classUnderTest = new App();
 //        assertNotNull("app should have a greeting", classUnderTest.getGreeting());
     //}
+    @Test
+    public void testGenRandBig(){
+        int bitNum = 32;
+        Random rnd = new Random();
+        BigInteger n = MathUtility.genRandBig(bitNum, rnd);
+        System.out.println(n);
+    }
 }

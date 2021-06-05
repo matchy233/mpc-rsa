@@ -63,12 +63,24 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     }
 
     @Override
+    public void hostModulusGeneration(StdRequest request, StreamObserver<StdResponse> responseObserver){
+        // id is used for bitNum now, not id
+        int bitNum = request.getId();
+        BigInteger randomPrime = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        BigInteger modulus = worker.hostModulusGeneration(bitNum, randomPrime, workflowID);
+        responseObserver.onNext(RpcUtility.Response.newStdResponse(id, modulus));
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void generateModulusPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         // id is used for bitNum now, not id
         int bitNum = request.getId();
         BigInteger randomPrime = new BigInteger(request.getContents().toByteArray());
-        worker.generateModulusPiece(bitNum, randomPrime);
-        responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
+        long workflowID = request.getWorkflowID();
+        BigInteger modulus = worker.generateModulus(bitNum, randomPrime, workflowID);
+        responseObserver.onNext(RpcUtility.Response.newStdResponse(id, modulus));
         responseObserver.onCompleted();
     }
 
@@ -78,36 +90,45 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
         BigInteger p = new BigInteger(request.getP().toByteArray());
         BigInteger q = new BigInteger(request.getQ().toByteArray());
         BigInteger h = new BigInteger(request.getH().toByteArray());
+        long workflowID = request.getWorkflowID();
+        worker.getDataReceiver().receivePHQ(id, p, q, h, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
-        worker.getDataReceiver().receivePHQ(id, p, q, h);
     }
 
     @Override
     public void exchangeNPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         int id = request.getId();
         BigInteger nPiece = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        worker.getDataReceiver().receiveNPiece(id, nPiece, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
-        worker.getDataReceiver().receiveNPiece(id, nPiece);
+    }
+
+    @Override
+    public void hostPrimalityTest(StdRequest request, StreamObserver<StdResponse> responseObserver){
+        long workflowID = request.getWorkflowID();
+        boolean passPrimalityTest = worker.primalityTestHost(workflowID);
+        int resultCode = passPrimalityTest? 1 : 0;
+        responseObserver.onNext(RpcUtility.Response.newStdResponse(resultCode));
+        responseObserver.onCompleted();
     }
 
     @Override
     public void primalityTest(StdRequest request, StreamObserver<PrimalityTestResponse> responseObserver) {
-//            System.out.println("receive primalityTest RPC");
-        if (id == 1 && !worker.primalityTestWaiting) {
-            boolean passPrimalityTest = worker.primalityTestHost();
-            PrimalityTestResponse response;
-            if (passPrimalityTest) {
-                response = RpcUtility.Response.newPrimalityTestResponse(1);
-            } else {
-                response = RpcUtility.Response.newPrimalityTestResponse(0);
-            }
-            responseObserver.onNext(response);
-        } else {
-            BigInteger result = worker.primalityTestGuest(new BigInteger(request.getContents().toByteArray()));
-            responseObserver.onNext(RpcUtility.Response.newPrimalityTestResponse(id, result));
-        }
+        int hostID = request.getId();
+        BigInteger g = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        BigInteger result = worker.primalityTestGuest(hostID, g, workflowID);
+        responseObserver.onNext(RpcUtility.Response.newPrimalityTestResponse(id, result));
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void abortModulusGeneration(StdRequest request, StreamObserver<StdResponse> responseObserver){
+        worker.setAbortModulusGeneration(true);
+        responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
     }
 
@@ -115,23 +136,26 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     public void exchangeGamma(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         int id = request.getId();
         BigInteger gamma = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        worker.getDataReceiver().receiveGamma(id, gamma, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
-        worker.getDataReceiver().receiveGamma(id, gamma);
     }
 
     @Override
     public void exchangeGammaSum(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         int id = request.getId();
         BigInteger gammaSum = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        worker.getDataReceiver().receiveGammaSum(id, gammaSum, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
-        worker.getDataReceiver().receiveGammaSum(id, gammaSum);
     }
 
     @Override
     public void generatePrivateKey(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-        worker.generatePrivateKey();
+        long workflowID = request.getWorkflowID();
+        worker.generatePrivateKey(workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
     }
