@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest ]
 
     steps:
       - uses: actions/checkout@v2
@@ -16,7 +16,12 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
+
+      - name: Grant Gradle execution right
+        run: chmod +x ./gradlew
+
       - name: Build with Gradle
         run: ./gradlew build
+        
       - name: Run Gradle Test
         run: ./gradlew test
