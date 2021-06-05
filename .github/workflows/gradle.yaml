@@ -28,5 +28,11 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build
 
-      - name: Run Gradle Test
-        run: ./gradlew test -i
+      - name: Run Code Coverage
+        run: |
+          ./gradlew check
+          ./gradlew jacocoTestReport
+
+      - name: Upload coverage to Codecov
+        run: bash <(curl -s https://codecov.io/bash)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
