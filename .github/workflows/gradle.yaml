@@ -23,7 +23,7 @@ jobs:
 
       - name: Grant Gralde execution right
         run: git update-index --chmod=+x ./gradlew
-         if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest'
 
       - name: Build with Gradle
         run: ./gradlew build
