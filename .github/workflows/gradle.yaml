@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
 
     steps:
       - uses: actions/checkout@v2
@@ -19,9 +19,14 @@ jobs:
 
       - name: Grant Gradle execution right
         run: chmod +x ./gradlew
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+
+      - name: Grant Gralde execution right
+        run: git update-index --chmod=+x ./gradlew
+         if: matrix.os == 'windows-latest'
 
       - name: Build with Gradle
         run: ./gradlew build
-        
+
       - name: Run Gradle Test
         run: ./gradlew test
