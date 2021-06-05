@@ -1,6 +1,6 @@
 # Secure Multiparty Computing (MPC) Module for RSA Keypair Generation and Message Decryption
 
-![GitHub top language](https://img.shields.io/github/languages/top/7942jun/mpc-project?color=orange) ![last commit](https://img.shields.io/github/last-commit/7942jun/mpc-project) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/7942jun/mpc-project/Java%20CI) 
+![GitHub top language](https://img.shields.io/github/languages/top/7942jun/mpc-project?color=orange) ![last commit](https://img.shields.io/github/last-commit/7942jun/mpc-project) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/7942jun/mpc-project/Java%20CI) ![Codecov](https://img.shields.io/codecov/c/github/7942jun/mpc-project)
 
 Secure Multiparty Computing (MPC) is a heated research field in cryptography with the goal of creating methods for
 multiple parties to jointly contribute to the computation while keeping the input private to each party.
