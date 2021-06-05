@@ -40,6 +40,10 @@ dependencies {
     implementation 'org.bouncycastle:bcprov-jdk15on:1.68'
 }
 
+test {
+    useJUnit()
+}
+
 application {
     // Define the main class for the application.
     mainClass = 'mpc.project.App'
