@@ -3,6 +3,11 @@ package mpc.project.Manager;
 import io.grpc.*;
 
 import java.math.BigInteger;
+import java.sql.Time;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
@@ -15,6 +20,7 @@ import mpc.project.util.Key;
 import mpc.project.util.Pair;
 import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
+import org.apache.commons.lang.time.DurationFormatUtils;
 
 public class ManagerMain {
     final int clusterMaxSize = 48;
@@ -180,6 +186,7 @@ public class ManagerMain {
 //    }
 
     private long validModulusGeneration(){
+        Instant start = Instant.now();
         for(int id = 1; id <= clusterSize; id++){
             rpcSender.sendHostModulusGenerationRequest(id, keyBitLength, randomPrime, id);
         }
@@ -189,6 +196,10 @@ public class ManagerMain {
         System.out.println(
                 "finished modulus generation, modulus: "+resultModulus+", workflow id: "+resultWorkflowID
         );
+        Instant end = Instant.now();
+        long durationMillis = Duration.between(start, end).toMillis();
+        String timeString = DurationFormatUtils.formatDuration(durationMillis, "HH:mm:ss.SSS");
+        System.out.println("generation time consumption: " + timeString);
         for(int id = 1; id <= clusterSize; id++){
             rpcSender.sendAbortModulusGenerationRequest(id);
         }
