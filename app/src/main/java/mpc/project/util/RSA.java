@@ -14,18 +14,18 @@ public class RSA {
     /*
      * blockSize * 8 should be under log_2(N)
      **/
-    static private int blockSize = 1;
+//    static private int blockSize = 1;
     /*
      * endBlockSize * 8 should be over log_2(N)
      **/
-    static private int paddingBlockSize = 2;
+//    static private int paddingBlockSize = 2;
 
 
-    static public void init(BigInteger N) {
-        int n = N.bitLength();
-        RSA.blockSize = n / 8;
-        RSA.paddingBlockSize = n / 8 + 1;
-    }
+//    static public void init(BigInteger N) {
+//        int n = N.bitLength();
+//        RSA.blockSize = n / 8;
+//        RSA.paddingBlockSize = n / 8 + 1;
+//    }
 
     /**
      * Method to encrypt given message
@@ -39,6 +39,9 @@ public class RSA {
         Base64.Encoder encoder = Base64.getEncoder();
 
         byte[] byteString = string.getBytes();
+        int bitLen = key.getN().bitLength();
+        int blockSize = bitLen / 8;
+        int paddingBlockSize = bitLen / 8 + 1;
 
         int numOfBlock = (int) Math.ceil((double) byteString.length / (double) blockSize);
         int resultSize = paddingBlockSize * numOfBlock;
@@ -74,6 +77,8 @@ public class RSA {
 
         byte[] byteString = decoder.decode(string.getBytes());
         byte[] result = new byte[byteString.length];
+        int bitLen = key.getN().bitLength();
+        int paddingBlockSize = bitLen / 8 + 1;
 
         // block-by decoding
         for (int i = 0; i < byteString.length; i += paddingBlockSize) {
@@ -103,6 +108,9 @@ public class RSA {
         Base64.Decoder decoder = Base64.getDecoder();
 
         byte[][] byteStrings = new byte[strings.length][];
+        int bitLen = key.getN().bitLength();
+        int paddingBlockSize = bitLen / 8 + 1;
+
         for (int i = 0; i < strings.length; ++i) {
             byteStrings[i] = decoder.decode(strings[i].getBytes());
         }
