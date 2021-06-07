@@ -148,7 +148,7 @@ public class ManagerMain {
     private long validModulusGeneration(){
         dataReceiver.resetModulusGenerationBucket();
         Instant start = Instant.now();
-        for(int id = 1; id <= clusterSize; id++){
+        for(int id = 1; id <= 1; id++){
             rpcSender.sendHostModulusGenerationRequest(id, keyBitLength, randomPrime, id);
         }
         Pair<BigInteger, Long> modulusWorkflowPair = dataReceiver.waitModulusGeneration();
