@@ -155,7 +155,7 @@ public class WorkerMain {
         for(int i = 1; i < clusterSize; i++){
             long subWorkflowID = uniqueBPieceShareWorkflowID(i, workflowID);
             BigInteger u = (i==shareRound)? a : BigInteger.ZERO;
-            generateFGH(b, u, sieve.getM(), subWorkflowID + workflowID);
+            generateFGH(b, u, sieve.getM(), subWorkflowID);
             b = updateBPiece(subWorkflowID, sieve.getM());
         }
         // to prevent even number
