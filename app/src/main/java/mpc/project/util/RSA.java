@@ -22,8 +22,8 @@ public class RSA {
 
 
     static public void init(BigInteger N) {
-        int n = N.bitCount();
-        RSA.blockSize = 1 + (n - 1) / 8;
+        int n = N.bitLength();
+        RSA.blockSize = n / 8;
         RSA.paddingBlockSize = n / 8 + 1;
     }
 
