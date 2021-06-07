@@ -161,11 +161,17 @@ public class MathUtility {
         Arrays.fill(arr, BigInteger.ZERO);
         BigInteger remain = N;
         for(int i = 0; i < size-1; i++){
+            if(remain.signum() != 1){
+                String errorMsg = "remain is not positive!\n";
+                errorMsg += "remain: " + remain + "\n";
+                errorMsg += "arr: \n{";
+                for(BigInteger num : arr){
+                    errorMsg += num + "\n";
+                }
+                errorMsg += "\n";
+            }
             arr[i] = genRandBig(N.bitLength(), rnd).mod(remain.divide(BigInteger.TWO));
             remain = remain.subtract(arr[i]);
-            if(remain.equals(BigInteger.ONE)){
-                break;
-            }
         }
         arr[size-1] = remain;
         return arr;
