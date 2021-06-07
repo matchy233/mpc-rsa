@@ -132,6 +132,10 @@ public class WorkerMain {
         return modulus;
     }
 
+    private long uniqueBPieceShareWorkflowID(int round, long currentWorkflowID){
+        return (long) round *(clusterSize+1)+currentWorkflowID;
+    }
+
     private BigInteger generateSievedProbablePrime(int hostID, int bitNum, long workflowID) {
         BigInteger a = sieve.generateSievedNumber(clusterSize, bitNum, rnd);
         BigInteger b;
@@ -149,9 +153,10 @@ public class WorkerMain {
             shareRound += clusterSize;
         }
         for(int i = 1; i < clusterSize; i++){
+            long subWorkflowID = uniqueBPieceShareWorkflowID(i, workflowID);
             BigInteger u = (i==shareRound)? a : BigInteger.ZERO;
-            generateFGH(b, u, sieve.getM(), (long) i *clusterSize + workflowID);
-            b = updateBPiece((long) i *clusterSize + workflowID, sieve.getM());
+            generateFGH(b, u, sieve.getM(), subWorkflowID + workflowID);
+            b = updateBPiece(subWorkflowID, sieve.getM());
         }
         // to prevent even number
         BigInteger randomFactor = sieve.getRandomFactor(rnd);
