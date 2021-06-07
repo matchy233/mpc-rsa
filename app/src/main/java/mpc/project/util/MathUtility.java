@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Random;
 
 public class MathUtility {
-    // Todo: maybe we should use generic here for some function
     static public BigInteger arraySum(BigInteger[] array){
         BigInteger result = BigInteger.valueOf(0);
         for(BigInteger element : array){
@@ -160,7 +159,8 @@ public class MathUtility {
         Arrays.fill(arr, BigInteger.ZERO);
         BigInteger remain = N;
         for(int i = 0; i < size-1; i++){
-            if(remain.signum() != 1){
+            // Todo: remove this check after fixing it
+            if(remain.divide(BigInteger.TWO).signum() != 1){
                 String errorMsg = "remain is not positive!\n";
                 errorMsg += "remain: " + remain + "\n";
                 errorMsg += "arr: \n{";
