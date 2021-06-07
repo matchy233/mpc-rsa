@@ -32,10 +32,12 @@ public class WorkerRPCSender {
     private final Executor senderExecutor = Executors.newCachedThreadPool();
 
     public void broadcastModulusGenerationRequest(int bitLength, BigInteger randomPrime, long workflowID) {
-        StdRequest request = RpcUtility.Request.newStdRequest(bitLength, randomPrime, workflowID);
+        ModulusRequest request = RpcUtility.Request.newModulusRequest(
+                worker.getId(), bitLength, randomPrime, workflowID
+        );
         for (int id = 1; id <= worker.getClusterSize(); id++) {
             int finalId = id;
-            stubs[id - 1].generateModulusPiece(request, new StreamObserver<StdResponse>() {
+            stubs[id - 1].generateModulus(request, new StreamObserver<StdResponse>() {
                 @Override
                 public void onNext(StdResponse response) {
                     int id = response.getId();

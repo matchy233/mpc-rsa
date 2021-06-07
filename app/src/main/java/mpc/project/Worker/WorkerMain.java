@@ -120,10 +120,10 @@ public class WorkerMain {
         return result;
     }
 
-    public BigInteger generateModulus(int bitNum, BigInteger randomPrime, long workflowID) {
+    public BigInteger generateModulus(int hostID, int bitNum, BigInteger randomPrime, long workflowID) {
         // Todo: distributed sieving of p and q
-        BigInteger p = generateSievedProbablePrime(bitNum, workflowID);
-        BigInteger q = generateSievedProbablePrime(bitNum, workflowID);
+        BigInteger p = generateSievedProbablePrime(hostID, bitNum, workflowID);
+        BigInteger q = generateSievedProbablePrime(hostID, bitNum, workflowID);
         generateFGH(p, q, randomPrime, workflowID);
         generateNPiece(randomPrime, workflowID);
         BigInteger modulus = generateN(randomPrime, workflowID);
@@ -132,29 +132,26 @@ public class WorkerMain {
         return modulus;
     }
 
-    private BigInteger generateSievedProbablePrime(int bitNum, long workflowID) {
+    private BigInteger generateSievedProbablePrime(int hostID, int bitNum, long workflowID) {
         BigInteger a = sieve.generateSievedNumber(clusterSize, bitNum, rnd);
         BigInteger b;
-        int round = 1;
-        if (id == 1) {
+        if (id == hostID) {
             BigInteger[] bArr = MathUtility.generateRandomArraySumToN(clusterSize, a, rnd);
             b = bArr[0];
             for (int i = 2; i <= clusterSize; i++) {
                 rpcSender.sendBPiece(i, bArr[i - 1], workflowID);
             }
-            round++;
         } else {
             b = dataReceiver.waitBPiece(workflowID);
-            round++;
         }
-        while (round <= clusterSize) {
-            if (id == round) {
-                generateFGH(b, a, sieve.getM(), (long) round *clusterSize + workflowID);
-            } else {
-                generateFGH(b, BigInteger.ZERO, sieve.getM(), (long) round *clusterSize + workflowID);
-            }
-            b = updateBPiece((long) round *clusterSize + workflowID, sieve.getM());
-            round++;
+        int shareRound = id - hostID;
+        if(shareRound < 0){
+            shareRound += clusterSize;
+        }
+        for(int i = 1; i < clusterSize; i++){
+            BigInteger u = (i==shareRound)? a : BigInteger.ZERO;
+            generateFGH(b, u, sieve.getM(), (long) i *clusterSize + workflowID);
+            b = updateBPiece((long) i *clusterSize + workflowID, sieve.getM());
         }
         // to prevent even number
         BigInteger randomFactor = sieve.getRandomFactor(rnd);

@@ -1,10 +1,7 @@
 package mpc.project.util;
 
 import com.google.protobuf.ByteString;
-import mpc.project.PrimalityTestResponse;
-import mpc.project.StdRequest;
-import mpc.project.StdResponse;
-import mpc.project.ExchangePrimespqhRequest;
+import mpc.project.*;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -76,6 +73,22 @@ public class RpcUtility {
                     .setP(ByteString.copyFrom(p.toByteArray()))
                     .setQ(ByteString.copyFrom(q.toByteArray()))
                     .setH(ByteString.copyFrom(h.toByteArray()))
+                    .setWorkflowID(workflowID)
+                    .build();
+        }
+
+        /** Build a request for modulus generation
+         * @param id the id of the generation host
+         * @param bitLength bit length of the generated modulus
+         * @param randomPrime a random prime number used in generation determined by manager
+         * @param workflowID the workflow id
+         * @return the generated ModulusRequest object
+         */
+        static public ModulusRequest newModulusRequest(int id, int bitLength, BigInteger randomPrime, long workflowID){
+            return ModulusRequest.newBuilder()
+                    .setId(id)
+                    .setBitLength(bitLength)
+                    .setRandomPrime(ByteString.copyFrom(randomPrime.toByteArray()))
                     .setWorkflowID(workflowID)
                     .build();
         }

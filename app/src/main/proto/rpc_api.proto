@@ -17,7 +17,7 @@ service WorkerService {
 
   /* Generate Modulus utilities */
   rpc hostModulusGeneration(StdRequest) returns (StdResponse) {}
-  rpc generateModulusPiece(StdRequest) returns (StdResponse) {}
+  rpc generateModulus(ModulusRequest) returns (StdResponse) {}
   rpc exchangePrimesPQH(ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
   rpc abortModulusGeneration(StdRequest) returns (StdResponse) {}
@@ -38,6 +38,13 @@ service WorkerService {
 // add more rpc methods and request/response types if needed
 service ManagerService{
   rpc greeting(StdRequest) returns (StdResponse) {}
+}
+
+message ModulusRequest{
+  int32 id = 1;     // for specifying the host's id
+  int32 bitLength = 2;
+  bytes randomPrime = 3;
+  int64 workflowID = 4;
 }
 
 message StdRequest {

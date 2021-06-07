@@ -84,12 +84,12 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     }
 
     @Override
-    public void generateModulusPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-        // id is used for bitNum now, not id
-        int bitNum = request.getId();
-        BigInteger randomPrime = new BigInteger(request.getContents().toByteArray());
+    public void generateModulus(ModulusRequest request, StreamObserver<StdResponse> responseObserver) {
+        int hostID = request.getId();
+        int bitNum = request.getBitLength();
+        BigInteger randomPrime = new BigInteger(request.getRandomPrime().toByteArray());
         long workflowID = request.getWorkflowID();
-        BigInteger modulus = worker.generateModulus(bitNum, randomPrime, workflowID);
+        BigInteger modulus = worker.generateModulus(hostID, bitNum, randomPrime, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id, modulus));
         responseObserver.onCompleted();
     }
