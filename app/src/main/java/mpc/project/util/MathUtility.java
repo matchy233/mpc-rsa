@@ -7,19 +7,18 @@ import java.util.Random;
 
 public class MathUtility {
     // Todo: maybe we should use generic here for some function
-
-    static public <T extends Number> BigInteger arraySum(T[] array) {
+    static public BigInteger arraySum(BigInteger[] array){
         BigInteger result = BigInteger.valueOf(0);
-        for (T element : array) {
-            result = result.add(new BigInteger(String.valueOf(element)));
+        for(BigInteger element : array){
+            result = result.add(element);
         }
         return result;
     }
 
-    static public <T extends Number> BigInteger arrayProduct(T[] array) {
+    static public BigInteger arrayProduct(BigInteger[] array) {
         BigInteger result = BigInteger.ONE;
-        for (T element : array) {
-            result = result.multiply(new BigInteger(String.valueOf(element)));
+        for (BigInteger element : array) {
+            result = result.multiply(element);
         }
         return result;
     }

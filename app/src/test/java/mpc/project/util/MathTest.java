@@ -14,31 +14,6 @@ public class MathTest {
     private final Random rnd = new Random(42);
 
     @Test
-    public void testArraySum() {
-        Integer[] arr = new Integer[100];
-        for (int i = 0; i < 100; i++) {
-            arr[i] = rnd.nextInt(1000);
-        }
-        int s1 = Arrays.stream(arr).mapToInt(Integer::intValue).sum();
-        BigInteger s2 = MathUtility.arraySum(arr);
-        assertEquals(BigInteger.valueOf(s1), s2);
-    }
-
-    @Test
-    public void testArrayProduct() {
-        Long[] arr = new Long[100];
-        for (int i = 0; i < 100; i++) {
-            arr[i] = rnd.nextLong();
-        }
-        BigInteger res1 = BigInteger.ONE;
-        for (Long i : arr) {
-            res1 = res1.multiply(BigInteger.valueOf(i));
-        }
-        BigInteger res2 = MathUtility.arrayProduct(arr);
-        assertEquals(res1, res2);
-    }
-
-    @Test
     public void testGenRandBig() {
         int bitNum = 32;
         Random rnd = new Random();
