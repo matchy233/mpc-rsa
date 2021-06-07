@@ -39,6 +39,7 @@ public class App {
     static boolean managerMode = false;
     static int portNum = 5083;
     static int keyBitLength = 1024;
+    static boolean managerParallelGeneration = false;
 
     private static void parseArguments(String[] args) throws UnsupportedArgException {
         for (int i = 0; i < args.length; i++) {
@@ -60,7 +61,13 @@ public class App {
                 try {
                     keyBitLength = Integer.parseInt(args[i + 1]);
                 } catch (NumberFormatException e) {
-                    throw new UnsupportedArgException("unsupported port number");
+                    throw new UnsupportedArgException("unsupported bit length number");
+                }
+            } else if (args[i].equals("--parallel") || args[i].equals("-P")) {
+                try {
+                    managerParallelGeneration = !(Integer.parseInt(args[i + 1]) == 0);
+                } catch (NumberFormatException e) {
+                    throw new UnsupportedArgException("unsupported parallel flag");
                 }
             }
         }
@@ -78,7 +85,7 @@ public class App {
             return;
         }
         if (managerMode) {
-            ManagerMain managerMain = new ManagerMain(portNum, keyBitLength);
+            ManagerMain managerMain = new ManagerMain(portNum, keyBitLength, managerParallelGeneration);
             managerMain.run();
         } else {
             WorkerMain workerMain = new WorkerMain(portNum);

@@ -27,6 +27,7 @@ public class ManagerMain {
     final int clusterMinSize = 3;
     final int keyBitLength;
     private int clusterSize;
+    private final boolean parallelGeneration;
     private Random rnd;
     private Server server;
     final private int portNum;
@@ -118,10 +119,11 @@ public class ManagerMain {
         return true;
     }
 
-    public ManagerMain(int portNum, int keyBitLength) {
+    public ManagerMain(int portNum, int keyBitLength, boolean parallelGeneration) {
         this.portNum = portNum;
         this.rnd = new Random();
         this.keyBitLength = keyBitLength;
+        this.parallelGeneration = parallelGeneration;
         // Fixme: hard codding 3 * keyBitLength might be a bad idea for large bit length, maybe need to look into this
         this.randomPrime = BigInteger.probablePrime(3 * keyBitLength, rnd);
         try {
@@ -148,7 +150,8 @@ public class ManagerMain {
     private long validModulusGeneration(){
         dataReceiver.resetModulusGenerationBucket();
         Instant start = Instant.now();
-        for(int id = 1; id <= 1; id++){
+        int generationHostBound = parallelGeneration? clusterSize : 1;
+        for(int id = 1; id <= generationHostBound; id++){
             rpcSender.sendHostModulusGenerationRequest(id, keyBitLength, randomPrime, id);
         }
         Pair<BigInteger, Long> modulusWorkflowPair = dataReceiver.waitModulusGeneration();
