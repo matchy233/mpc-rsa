@@ -8,6 +8,7 @@ import java.math.RoundingMode;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
 import mpc.project.util.*;
 
@@ -87,6 +88,7 @@ public class WorkerMain {
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new WorkerRPCReceiverService(this))
+                    .executor(Executors.newCachedThreadPool())
                     .build()
                     .start();
             System.out.println("Waiting for manager to connect");

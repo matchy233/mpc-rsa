@@ -6,6 +6,10 @@ import mpc.project.*;
 import mpc.project.util.RpcUtility;
 
 import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.*;
+import java.util.stream.IntStream;
 
 public class WorkerRPCSender {
     private WorkerServiceGrpc.WorkerServiceStub[] stubs;
@@ -24,6 +28,8 @@ public class WorkerRPCSender {
     public void setStubs(WorkerServiceGrpc.WorkerServiceStub[] stubs) {
         this.stubs = stubs;
     }
+
+    private final Executor senderExecutor = Executors.newCachedThreadPool();
 
     public void broadcastModulusGenerationRequest(int bitLength, BigInteger randomPrime, long workflowID) {
         StdRequest request = RpcUtility.Request.newStdRequest(bitLength, randomPrime, workflowID);
@@ -53,8 +59,7 @@ public class WorkerRPCSender {
 
     public void sendBPiece(int id, BigInteger b, long workflowID) {
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), b, workflowID);
-        Context ctx = Context.current().fork();
-        ctx.run(() -> stubs[id - 1].initializeBPiece(request, new StreamObserver<>() {
+        senderExecutor.execute(() -> stubs[id - 1].initializeBPiece(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
             }
@@ -73,8 +78,7 @@ public class WorkerRPCSender {
 
     public void sendPQH(int id, BigInteger p, BigInteger q, BigInteger h, long workflowID) {
         ExchangePrimespqhRequest request = RpcUtility.Request.newExchangePrimesRequest(worker.getId(), p, q, h, workflowID);
-        Context ctx = Context.current().fork();
-        ctx.run(() -> stubs[id - 1].exchangePrimesPQH(request, new StreamObserver<>() {
+        senderExecutor.execute(() -> stubs[id - 1].exchangePrimesPQH(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
             }
@@ -93,27 +97,26 @@ public class WorkerRPCSender {
 
     public void broadcastNPiece(BigInteger nPiece, long workflowID){
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), nPiece, workflowID);
-        Context ctx = Context.current().fork();
-        ctx.run(() -> {
-                    for(int id = 1; id <= worker.getClusterSize(); id++){
-                        int finalId = id;
-                        stubs[id - 1].exchangeNPiece(request, new StreamObserver<>() {
-                            @Override
-                            public void onNext(StdResponse response) {
-                            }
+        senderExecutor.execute(() -> {
+            for(int id = 1; id <= worker.getClusterSize(); id++){
+                int finalId = id;
+                stubs[id - 1].exchangeNPiece(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                    }
 
-                            @Override
-                            public void onError(Throwable t) {
-                                System.out.println("sendNPiece RPC error for " + finalId + " : " + t.getMessage());
-                                System.exit(-1);
-                            }
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("sendNPiece RPC error for " + finalId + " : " + t.getMessage());
+                        System.exit(-1);
+                    }
 
-                            @Override
-                            public void onCompleted() {
-                            }
-                        });
+                    @Override
+                    public void onCompleted() {
                     }
                 });
+            }
+        });
     }
 
     public void broadcastPrimalityTestRequest(BigInteger g, long workflowID){
@@ -144,8 +147,7 @@ public class WorkerRPCSender {
 
     public void sendGamma(int id, BigInteger gamma, long workflowID) {
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gamma, workflowID);
-        Context ctx = Context.current().fork();
-        ctx.run(() -> stubs[id - 1].exchangeGamma(request, new StreamObserver<>() {
+        senderExecutor.execute(() -> stubs[id - 1].exchangeGamma(request, new StreamObserver<>() {
             @Override
             public void onNext(StdResponse response) {
             }
@@ -164,8 +166,7 @@ public class WorkerRPCSender {
 
     public void broadcastGammaSum(BigInteger gammaSum, long workflowID){
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gammaSum, workflowID);
-        Context ctx = Context.current().fork();
-        ctx.run(()->{
+        senderExecutor.execute(() -> {
             for(int id = 1; id <= worker.getClusterSize(); id++){
                 int finalId = id;
                 stubs[id - 1].exchangeGammaSum(request, new StreamObserver<>() {
@@ -185,7 +186,6 @@ public class WorkerRPCSender {
                 });
             }
         });
-
     }
 
     public void sendDecryptRequest(int id, String encryptedMessage, long workflowID) {
