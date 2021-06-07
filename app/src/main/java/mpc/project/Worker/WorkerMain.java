@@ -274,7 +274,6 @@ public class WorkerMain {
         BigInteger modulus = modulusMap.get(workflowID);
         cleanupModulusGenerationMap();
         key.setN(modulus);
-        RSA.init(modulus);
         BigInteger phi = (id == 1) ?
                 key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
