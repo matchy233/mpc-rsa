@@ -63,6 +63,16 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     }
 
     @Override
+    public void initializeBPiece(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+        int id = request.getId();
+        BigInteger b = new BigInteger(request.getContents().toByteArray());
+        long workflowID = request.getWorkflowID();
+        worker.getDataReceiver().receiveBPiece(id, b, workflowID);
+        responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void hostModulusGeneration(StdRequest request, StreamObserver<StdResponse> responseObserver){
         // id is used for bitNum now, not id
         int bitNum = request.getId();

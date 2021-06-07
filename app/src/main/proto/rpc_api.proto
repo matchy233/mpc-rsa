@@ -6,16 +6,19 @@ option java_package = "mpc.project";
 // this service is for the worker server
 // add more rpc methods and request/response types if needed
 service WorkerService {
-  /* Clust formation utilities */
+  /* Cluster formation utilities */
   rpc registerManager(StdRequest) returns(StdResponse) {}
   rpc formCluster(StdRequest) returns (StdResponse) {}
   rpc formNetwork(StdRequest) returns (StdResponse) {}
   rpc shutDownWorker(StdRequest) returns (StdResponse) {}
 
+  /* Sieving utilities */
+  rpc initializeBPiece(StdRequest) returns (StdResponse) {}
+
   /* Generate Modulus utilities */
   rpc hostModulusGeneration(StdRequest) returns (StdResponse) {}
   rpc generateModulusPiece(StdRequest) returns (StdResponse) {}
-  rpc exchangePrimesPQH (ExchangePrimespqhRequest) returns (StdResponse) {}
+  rpc exchangePrimesPQH(ExchangePrimespqhRequest) returns (StdResponse) {}
   rpc exchangeNPiece(StdRequest) returns (StdResponse) {}
   rpc abortModulusGeneration(StdRequest) returns (StdResponse) {}
 

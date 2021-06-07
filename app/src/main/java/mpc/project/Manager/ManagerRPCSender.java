@@ -48,28 +48,6 @@ public class ManagerRPCSender {
         });
     }
 
-    public void sendHostPrimalityTestRequest(int id, long workflowID) {
-        StdRequest request = RpcUtility.Request.newStdRequest(0, workflowID);
-        stubs[id - 1].hostPrimalityTest(request, new StreamObserver<StdResponse>() {
-            @Override
-            public void onNext(StdResponse response) {
-                boolean primalityTestResult = (response.getId() == 1);
-                manager.getDataReceiver().receivePrimalityTestResult(primalityTestResult, workflowID);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                System.out.println("Primality test RPC error: " + t.getMessage());
-                manager.getRpcSender().broadcastShutDownWorkerRequest(t.getMessage());
-                System.exit(-1);
-            }
-
-            @Override
-            public void onCompleted() {
-            }
-        });
-    }
-
     public void sendGeneratePrivateKeyRequest(int id) {
         stubs[id - 1].generatePrivateKey(RpcUtility.Request.newStdRequest(0), new StreamObserver<StdResponse>() {
             @Override

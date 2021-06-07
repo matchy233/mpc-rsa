@@ -1,44 +1,53 @@
 package mpc.project.util;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 public class MathUtility {
-    static public BigInteger arraySum(BigInteger[] array) {
+    // Todo: maybe we should use generic here for some function
+
+    static public <T extends Number> BigInteger arraySum(T[] array) {
         BigInteger result = BigInteger.valueOf(0);
-        for (BigInteger element : array) {
-            result = result.add(element);
+        for (T element : array) {
+            result = result.add(new BigInteger(String.valueOf(element)));
         }
         return result;
     }
 
-    static public double[] computeValuesOfLagrangianPolynomialsAtZero(int len) {
+    static public <T extends Number> BigInteger arrayProduct(T[] array) {
+        BigInteger result = BigInteger.ONE;
+        for (T element : array) {
+            result = result.multiply(new BigInteger(String.valueOf(element)));
+        }
+        return result;
+    }
+
+    static public double computeTermOfLagrangianPolynomialAtZero(int xi, int len) {
+        int i = xi - 1;
+        int numerator = 1;
+        int denominator = 1;
+        for (int j = 0; j < i; j++) {
+            numerator *= -(j + 1);
+            denominator *= (xi - (j + 1));
+        }
+        for (int j = i + 1; j < len; j++) {
+            numerator *= -(j + 1);
+            denominator *= (xi - (j + 1));
+        }
+        return (double) numerator / (double) denominator;
+    }
+
+    static public double[] computeAllValuesOfLagrangianPolynomialAtZero(int len) {
         double[] results = new double[len];
 
         for (int i = 0; i < len; i++) {
             int xi = i + 1;
-            int numerator = 1;
-            int denominator = 1;
-            for (int j = 0; j < i; j++) {
-                numerator *= -(j + 1);
-                denominator *= (xi - (j + 1));
-            }
-            for (int j = i + 1; j < len; j++) {
-                numerator *= -(j + 1);
-                denominator *= (xi - (j + 1));
-            }
-            results[i] = (double) numerator / (double) denominator;
+            results[i] = MathUtility.computeTermOfLagrangianPolynomialAtZero(xi, len);
         }
 
         return results;
-    }
-
-    static public BigInteger genRandPrimeBig(int bitNum, BigInteger lessThanThis, Random rnd) {
-        BigInteger result;
-        do {
-            result = BigInteger.probablePrime(bitNum, rnd);
-        } while (result.compareTo(lessThanThis) >= 0);
-        return result;
     }
 
     static public BigInteger genRandBig(int bitLength, Random rnd) {
@@ -90,19 +99,75 @@ public class MathUtility {
         return result;
     }
 
-    static public BigInteger arrayProduct(BigInteger[] array) {
-        BigInteger result = BigInteger.ONE;
-        for (BigInteger element : array) {
-            result = result.multiply(element);
-        }
-        return result;
+    static public BigInteger computeSharingResult(BigInteger[] pArr, BigInteger[] qArr, BigInteger[] hArr, BigInteger modulo) {
+        return (MathUtility.arraySum(pArr).mod(modulo)
+                .multiply(MathUtility.arraySum(qArr).mod(modulo))).mod(modulo)
+                .add(MathUtility.arraySum(hArr).mod(modulo))
+                .mod(modulo);
     }
 
-    static public BigInteger[] toBigIntegerArray(long[] array) {
-        BigInteger[] result = new BigInteger[array.length];
-        for (int i = 0; i < array.length; i++) {
-            result[i] = BigInteger.valueOf(array[i]);
+    static public <T extends Number> BigInteger[] generatePrimeNumberTable(T upperBound) {
+        ArrayList<BigInteger> primeNumberTable = new ArrayList<>();
+        primeNumberTable.add(BigInteger.TWO);
+        BigInteger i = BigInteger.valueOf(3);
+        while (i.compareTo(new BigInteger(String.valueOf(upperBound))) <= 0) {
+            boolean isPrime = true;
+            for (BigInteger j : primeNumberTable) {
+                if (i.mod(j).equals(BigInteger.ZERO)) {
+                    isPrime = false;
+                    break;
+                }
+            }
+            if (isPrime) {
+                primeNumberTable.add(i);
+            }
+            i = i.add(BigInteger.TWO);
         }
-        return result;
+        return primeNumberTable.toArray(new BigInteger[0]);
+    }
+
+    static public <T extends Number> BigInteger[] generatePrimeNumberTable(T upperBound, T[] primeBefore) {
+        ArrayList<BigInteger> primeAfter = new ArrayList<>();
+        BigInteger i = BigInteger.valueOf(3);
+        while (i.compareTo(new BigInteger(String.valueOf(upperBound))) <= 0) {
+            boolean isPrime = true;
+
+            for (T j : primeBefore) {
+                if (i.mod(new BigInteger(String.valueOf(j))).equals(BigInteger.ZERO)) {
+                    isPrime = false;
+                    break;
+                }
+            }
+
+            if (!primeAfter.isEmpty()) {
+                for (BigInteger j : primeAfter) {
+                    if (i.mod(j).equals(BigInteger.ZERO)) {
+                        isPrime = false;
+                        break;
+                    }
+                }
+            }
+
+            if (isPrime) {
+                primeAfter.add(i);
+            }
+            i = i.add(BigInteger.TWO);
+        }
+        return primeAfter.toArray(new BigInteger[0]);
+    }
+
+    static public BigInteger[] generateRandomArraySumToN(int size, BigInteger N, Random rnd) {
+        BigInteger[] arr = new BigInteger[size];
+        Arrays.fill(arr, BigInteger.ZERO);
+        BigInteger remain = N;
+        for(int i = 0; i < size-1; i++){
+            arr[i] = genRandBig(N.bitLength(), rnd).mod(remain.divide(BigInteger.TWO));
+            remain = remain.subtract(arr[i]);
+            if(remain.equals(BigInteger.ONE)){
+                break;
+            }
+        }
+        arr[size-1] = remain;
+        return arr;
     }
 }

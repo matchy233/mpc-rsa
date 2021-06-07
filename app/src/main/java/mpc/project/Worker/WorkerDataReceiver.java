@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorkerDataReceiver {
     WorkerMain worker;
@@ -23,6 +22,36 @@ public class WorkerDataReceiver {
         hArrMap.clear();
         nPieceReadyFlagMap.clear();
         nPieceArrMap.clear();
+    }
+
+    private final Object bPieceMapLock = new Object();
+    private final Map<Long, Semaphore> bPieceReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger> bPieceMap = new ConcurrentHashMap<>();
+
+    private void emptyCheckBPiece(long workflowID) {
+        synchronized (bPieceMapLock) {
+            if (!bPieceReadyFlagMap.containsKey(workflowID)) {
+                bPieceReadyFlagMap.put(workflowID, new Semaphore(0));
+            }
+        }
+    }
+
+    public void receiveBPiece(int id, BigInteger b, long workflowID) {
+        emptyCheckBPiece(workflowID);
+        bPieceMap.putIfAbsent(workflowID, b);
+        bPieceReadyFlagMap.get(workflowID).release();
+    }
+
+    public BigInteger waitBPiece(long workflowID) {
+        emptyCheckBPiece(workflowID);
+        try {
+            bPieceReadyFlagMap.get(workflowID).acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        BigInteger b = bPieceMap.get(workflowID);
+        bPieceMap.remove(workflowID);
+        return b;
     }
 
     private final Object modulusMapLock = new Object();

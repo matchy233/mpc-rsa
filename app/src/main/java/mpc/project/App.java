@@ -14,6 +14,7 @@ public class App {
     }
 
     private static void printHelpMsg() {
+        // Todo: write a real help message function
         String helpMsg = "";
         helpMsg += "this is a dummy help msg";
         System.out.println(helpMsg);

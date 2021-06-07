@@ -47,6 +47,10 @@ public class ManagerDataReceiver {
     private final Semaphore modulusGenerationFlag = new Semaphore(0);
     private Pair<BigInteger, Long> modulusWorkflowPair;
 
+    public void resetModulusGenerationBucket(){
+        modulusGenerationFlag.tryAcquire(modulusGenerationFlag.availablePermits());
+    }
+
     public void receiveModulusGenerationResponse(BigInteger modulus, long workflowID) {
         modulusWorkflowPair = new Pair<>(modulus, workflowID);
         modulusGenerationFlag.release();
@@ -62,43 +66,6 @@ public class ManagerDataReceiver {
                 modulusWorkflowPair.first,
                 modulusWorkflowPair.second
         );
-        return result;
-    }
-
-    private final Object primalityTestLock = new Object();
-    private final Map<Long, Semaphore> primalityTestFlagMap = new ConcurrentHashMap<>();
-    private final Map<Long, Boolean> primalityTestResultMap = new ConcurrentHashMap<>();
-
-    public void checkEmptyPrimalityTest(long workflowID){
-        synchronized (primalityTestLock){
-            if(!primalityTestFlagMap.containsKey(workflowID)){
-                primalityTestFlagMap.put(workflowID, new Semaphore(0));
-            }
-        }
-    }
-
-    public void cleanPrimalityTestBucket(long workflowID){
-        synchronized (primalityTestLock){
-            primalityTestFlagMap.remove(workflowID);
-            primalityTestResultMap.remove(workflowID);
-        }
-    }
-
-    public void receivePrimalityTestResult(boolean primalityTestResult, long workflowID) {
-        checkEmptyPrimalityTest(workflowID);
-        primalityTestResultMap.put(workflowID, primalityTestResult);
-        primalityTestFlagMap.get(workflowID).release();
-    }
-
-    public boolean waitPrimalityTestResult(long workflowID) {
-        checkEmptyPrimalityTest(workflowID);
-        try {
-            primalityTestFlagMap.get(workflowID).acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        boolean result = primalityTestResultMap.get(workflowID);
-        cleanPrimalityTestBucket(workflowID);
         return result;
     }
 
