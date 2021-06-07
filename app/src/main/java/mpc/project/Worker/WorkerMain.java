@@ -121,7 +121,6 @@ public class WorkerMain {
     }
 
     public BigInteger generateModulus(int hostID, int bitNum, BigInteger randomPrime, long workflowID) {
-        // Todo: distributed sieving of p and q
         BigInteger p = generateSievedProbablePrime(hostID, bitNum, workflowID);
         BigInteger q = generateSievedProbablePrime(hostID, bitNum, workflowID);
         generateFGH(p, q, randomPrime, workflowID);
@@ -142,8 +141,10 @@ public class WorkerMain {
         if (id == hostID) {
             BigInteger[] bArr = MathUtility.generateRandomArraySumToN(clusterSize, a, rnd);
             b = bArr[0];
-            for (int i = 2; i <= clusterSize; i++) {
-                rpcSender.sendBPiece(i, bArr[i - 1], workflowID);
+            for (int i = 1; i <= clusterSize; i++) {
+                if(i != id){
+                    rpcSender.sendBPiece(i, bArr[i - 1], workflowID);
+                }
             }
         } else {
             b = dataReceiver.waitBPiece(workflowID);
