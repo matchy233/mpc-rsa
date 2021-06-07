@@ -40,7 +40,8 @@ public class WorkerMain {
     private final Sieve sieve = new Sieve();
 
     private volatile boolean abortModulusGeneration;
-    public void setAbortModulusGeneration(boolean abortModulusGeneration){
+
+    public void setAbortModulusGeneration(boolean abortModulusGeneration) {
         this.abortModulusGeneration = abortModulusGeneration;
     }
 
@@ -112,7 +113,7 @@ public class WorkerMain {
             System.out.println("host waiting for modulus generation");
             result = dataReceiver.waitModulus(workflowID);
             // Todo: implement more elegant trail division
-            if(result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)){
+            if (result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)) {
                 passPrimalityTest = primalityTestHost(workflowID);
             }
             System.out.println("modulus is " + result);
@@ -131,8 +132,8 @@ public class WorkerMain {
         return modulus;
     }
 
-    private long uniqueBPieceShareWorkflowID(int round, long currentWorkflowID){
-        return (long) round *(clusterSize+1)+currentWorkflowID;
+    private long uniqueBPieceShareWorkflowID(int round, long currentWorkflowID) {
+        return (long) round * (clusterSize + 1) + currentWorkflowID;
     }
 
     private BigInteger generateSievedProbablePrime(int hostID, int bitNum, long workflowID) {
@@ -140,28 +141,22 @@ public class WorkerMain {
         BigInteger b;
         if (id == hostID) {
             BigInteger[] bArr = MathUtility.generateRandomArraySumToN(clusterSize, a, rnd);
-            b = bArr[0];
-            for (int i = 1; i <= clusterSize; i++) {
-                if(i != id){
-                    rpcSender.sendBPiece(i, bArr[i - 1], workflowID);
-                }
-            }
-        } else {
-            b = dataReceiver.waitBPiece(workflowID);
+            rpcSender.broadcastBPieceArr(bArr, workflowID);
         }
+        b = dataReceiver.waitBPiece(workflowID);
         int shareRound = id - hostID;
-        if(shareRound < 0){
+        if (shareRound < 0) {
             shareRound += clusterSize;
         }
-        for(int i = 1; i < clusterSize; i++){
+        for (int i = 1; i < clusterSize; i++) {
             long subWorkflowID = uniqueBPieceShareWorkflowID(i, workflowID);
-            BigInteger u = (i==shareRound)? a : BigInteger.ZERO;
+            BigInteger u = (i == shareRound) ? a : BigInteger.ZERO;
             generateFGH(b, u, sieve.getM(), subWorkflowID);
             b = updateBPiece(subWorkflowID, sieve.getM());
         }
         // to prevent even number
         BigInteger randomFactor = sieve.getRandomFactor(rnd);
-        if(b.mod(BigInteger.TWO).equals(randomFactor.mod(BigInteger.TWO))) {
+        if (b.mod(BigInteger.TWO).equals(randomFactor.mod(BigInteger.TWO))) {
             randomFactor = randomFactor.add(BigInteger.ONE);
         }
         return randomFactor.multiply(sieve.getM()).add(b);
@@ -194,9 +189,7 @@ public class WorkerMain {
             hArr_tmp[i] = MathUtility.polynomialResult(polyH, BigInteger.valueOf(i + 1), randomPrime);
         }
 
-        for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendPQH(i, pArr_tmp[i - 1], qArr_tmp[i - 1], hArr_tmp[i - 1], workflowID);
-        }
+        rpcSender.broadcastPQHArr(pArr_tmp, qArr_tmp, hArr_tmp, workflowID);
     }
 
     private BigInteger updateBPiece(long workflowID, BigInteger M) {
@@ -251,11 +244,14 @@ public class WorkerMain {
         dataReceiver.waitVerificationFactor(workflowID, verificationArray);
 
         BigInteger v = BigInteger.valueOf(1);
-        for (int i = 1; i < clusterSize; i++) {
+        for (int i = 0; i < clusterSize; i++) {
+            if(i == id-1){
+                continue;
+            }
             v = v.multiply(verificationArray[i]);
         }
 
-        return verificationArray[0].equals(v.mod(modulus));
+        return verificationArray[id-1].equals(v.mod(modulus));
     }
 
     public BigInteger primalityTestGuest(int hostID, BigInteger g, long workflowID) {
@@ -283,9 +279,7 @@ public class WorkerMain {
                 key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
         BigInteger[] gammaArrLocal = MathUtility.generateRandomSumArray(phi, clusterSize, rnd);
-        for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendGamma(i, gammaArrLocal[i - 1], workflowID);
-        }
+        rpcSender.broadcastGammaArr(gammaArrLocal, workflowID);
         BigInteger[] gammaArr = new BigInteger[clusterSize];
         dataReceiver.waitGamma(workflowID, gammaArr);
         BigInteger gammaSum = MathUtility.arraySum(gammaArr);

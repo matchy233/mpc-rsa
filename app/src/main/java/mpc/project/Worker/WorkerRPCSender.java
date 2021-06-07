@@ -59,48 +59,74 @@ public class WorkerRPCSender {
         }
     }
 
-    public void sendBPiece(int id, BigInteger b, long workflowID) {
-        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), b, workflowID);
-        senderExecutor.execute(() -> stubs[id - 1].initializeBPiece(request, new StreamObserver<>() {
-            @Override
-            public void onNext(StdResponse response) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                System.out.println("initialize B piece RPC error for " + id + " : " + t.getMessage());
-                System.exit(-1);
-            }
-
-            @Override
-            public void onCompleted() {
-            }
-        }));
-    }
-
-    public void sendPQH(int id, BigInteger p, BigInteger q, BigInteger h, long workflowID) {
-        ExchangePrimespqhRequest request = RpcUtility.Request.newExchangePrimesRequest(worker.getId(), p, q, h, workflowID);
-        senderExecutor.execute(() -> stubs[id - 1].exchangePrimesPQH(request, new StreamObserver<>() {
-            @Override
-            public void onNext(StdResponse response) {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                System.out.println("exchangePQH RPC error for " + id + " : " + t.getMessage());
-                System.exit(-1);
-            }
-
-            @Override
-            public void onCompleted() {
-            }
-        }));
-    }
-
-    public void broadcastNPiece(BigInteger nPiece, long workflowID){
-        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), nPiece, workflowID);
+    public void broadcastBPieceArr(BigInteger[] bArr, long workflowID) {
+        worker.getDataReceiver().receiveBPiece(worker.getId(), bArr[worker.getId() - 1], workflowID);
         senderExecutor.execute(() -> {
-            for(int id = 1; id <= worker.getClusterSize(); id++){
+            for (int id = 1; id <= worker.getClusterSize(); id++) {
+                if (id == worker.getId()) {
+                    continue;
+                }
+                StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), bArr[id - 1], workflowID);
+                int finalId = id;
+                stubs[id - 1].initializeBPiece(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("initialize B piece RPC error for " + finalId + " : " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                    }
+                });
+            }
+        });
+    }
+
+    public void broadcastPQHArr(BigInteger[] pArr, BigInteger[] qArr, BigInteger[] hArr, long workflowID) {
+        worker.getDataReceiver().receivePHQ(
+                worker.getId(), pArr[worker.getId() - 1], qArr[worker.getId() - 1], hArr[worker.getId() - 1], workflowID
+        );
+        senderExecutor.execute(() -> {
+            for (int id = 1; id <= worker.getClusterSize(); id++) {
+                if (id == worker.getId()) {
+                    continue;
+                }
+                ExchangePrimespqhRequest request = RpcUtility.Request.newExchangePrimesRequest(
+                        worker.getId(), pArr[id - 1], qArr[id - 1], hArr[id - 1], workflowID
+                );
+                int finalId = id;
+                stubs[id - 1].exchangePrimesPQH(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("exchangePQH RPC error for " + finalId + " : " + t.getMessage());
+                        System.exit(-1);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                    }
+                });
+            }
+        });
+    }
+
+    public void broadcastNPiece(BigInteger nPiece, long workflowID) {
+        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), nPiece, workflowID);
+        worker.getDataReceiver().receiveNPiece(worker.getId(), nPiece, workflowID);
+        senderExecutor.execute(() -> {
+            for (int id = 1; id <= worker.getClusterSize(); id++) {
+                if (id == worker.getId()) {
+                    continue;
+                }
                 int finalId = id;
                 stubs[id - 1].exchangeNPiece(request, new StreamObserver<>() {
                     @Override
@@ -121,9 +147,9 @@ public class WorkerRPCSender {
         });
     }
 
-    public void broadcastPrimalityTestRequest(BigInteger g, long workflowID){
+    public void broadcastPrimalityTestRequest(BigInteger g, long workflowID) {
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), g, workflowID);
-        for(int id = 1; id <= worker.getClusterSize(); id++){
+        for (int id = 1; id <= worker.getClusterSize(); id++) {
             int finalId = id;
             stubs[id - 1].primalityTest(request, new StreamObserver<>() {
                 @Override
@@ -147,29 +173,42 @@ public class WorkerRPCSender {
         }
     }
 
-    public void sendGamma(int id, BigInteger gamma, long workflowID) {
-        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gamma, workflowID);
-        senderExecutor.execute(() -> stubs[id - 1].exchangeGamma(request, new StreamObserver<>() {
-            @Override
-            public void onNext(StdResponse response) {
-            }
+    public void broadcastGammaArr(BigInteger[] gammaArr, long workflowID) {
+        worker.getDataReceiver().receiveGamma(worker.getId(), gammaArr[worker.getId() - 1], workflowID);
+        senderExecutor.execute(() -> {
+            for (int id = 1; id <= worker.getClusterSize(); id++) {
+                if (id == worker.getId()) {
+                    continue;
+                }
+                StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gammaArr[id - 1], workflowID);
+                int finalId = id;
+                stubs[id - 1].exchangeGamma(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(StdResponse response) {
+                    }
 
-            @Override
-            public void onError(Throwable t) {
-                System.out.println("sendGamma RPC error for " + id + " : " + t.getMessage());
-                System.exit(-1);
-            }
+                    @Override
+                    public void onError(Throwable t) {
+                        System.out.println("sendGamma RPC error for " + finalId + " : " + t.getMessage());
+                        System.exit(-1);
+                    }
 
-            @Override
-            public void onCompleted() {
+                    @Override
+                    public void onCompleted() {
+                    }
+                });
             }
-        }));
+        });
     }
 
-    public void broadcastGammaSum(BigInteger gammaSum, long workflowID){
+    public void broadcastGammaSum(BigInteger gammaSum, long workflowID) {
         StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gammaSum, workflowID);
+        worker.getDataReceiver().receiveGammaSum(worker.getId(), gammaSum, workflowID);
         senderExecutor.execute(() -> {
-            for(int id = 1; id <= worker.getClusterSize(); id++){
+            for (int id = 1; id <= worker.getClusterSize(); id++) {
+                if (id == worker.getId()) {
+                    continue;
+                }
                 int finalId = id;
                 stubs[id - 1].exchangeGammaSum(request, new StreamObserver<>() {
                     @Override
