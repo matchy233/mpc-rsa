@@ -5,11 +5,12 @@ import java.util.Arrays;
 import java.util.Random;
 
 public class Sieve {
-    private BigInteger fixValue = BigInteger.ONE;
+//    private BigInteger fixValue = BigInteger.ONE;
     private BigInteger M = BigInteger.ONE;
     private BigInteger[] primeTable;
     private int clusterSize = -1;
     private int bitNum = -1;
+    private BigInteger primeTableUpperBound = BigInteger.valueOf(150000);
 
     public BigInteger getM() {
         return M;
@@ -22,15 +23,18 @@ public class Sieve {
         this.clusterSize = clusterSize;
         this.bitNum = bitNum;
         BigInteger sievingBound = BigInteger.TWO.pow(bitNum - 1);
-        int index = Arrays.binarySearch(primeTable, BigInteger.valueOf(clusterSize));
+//        int index = Arrays.binarySearch(primeTable, BigInteger.valueOf(clusterSize));
+//
+//        if (index < 0) { // clusterSize is in the prime table
+//            index = -(index + 1);
+//        } else {
+//            index++; // clusterSize is in the prime table
+//        }
 
-        if (index < 0) { // clusterSize is in the prime table
-            index = -(index + 1);
-        } else {
-            index++; // clusterSize is in the prime table
-        }
+        // Why this works but in the paper it's said not to?
+        int index = 0;
 
-        this.fixValue = MathUtility.arrayProduct(Arrays.copyOfRange(primeTable, 0, index));
+//        this.fixValue = MathUtility.arrayProduct(Arrays.copyOfRange(primeTable, 0, index));
 
         boolean needToCreateNewPrimeTable = true;
 
@@ -47,8 +51,9 @@ public class Sieve {
             if (!needToCreateNewPrimeTable) {
                 break;
             }
+            primeTableUpperBound = primeTableUpperBound.add(primeTableUpperBound.divide(BigInteger.TWO));
             primeTable = MathUtility.generatePrimeNumberTable(
-                    primeTable[primeTable.length - 1].add(BigInteger.valueOf(100)),
+                    primeTableUpperBound,
                     primeTable);
         }
     }
@@ -58,8 +63,7 @@ public class Sieve {
     }
 
     public Sieve() {
-        // Todo: Implement distributed sieving
-        this.primeTable = MathUtility.generatePrimeNumberTable(BigInteger.valueOf(150000));
+        this.primeTable = MathUtility.generatePrimeNumberTable(primeTableUpperBound);
 
     }
 
@@ -71,8 +75,8 @@ public class Sieve {
             BigInteger r = MathUtility.genRandBig(M, rnd);
             for (int i = 0; i < 31; i++) {
                 BigInteger target = r.add(BigInteger.valueOf(i));
-                if (target.gcd(M).equals(BigInteger.ONE) &&
-                        target.gcd(fixValue).equals(BigInteger.ONE)) {
+                if (target.gcd(M).equals(BigInteger.ONE) ){
+//                        && target.gcd(fixValue).equals(BigInteger.ONE)) {
                     foundGoodCandidate = true;
                     a = target;
                     break;

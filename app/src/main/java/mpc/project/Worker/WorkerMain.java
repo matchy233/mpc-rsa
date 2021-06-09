@@ -111,10 +111,10 @@ public class WorkerMain {
             rpcSender.broadcastModulusGenerationRequest(bitNum, randomPrime, workflowID);
             System.out.println("host waiting for modulus generation");
             result = dataReceiver.waitModulus(workflowID);
-            // Todo: implement more elegant trail division
-            if (result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)) {
+            // no need for trial division with the modified version sieve
+//            if (result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)) {
                 passPrimalityTest = primalityTestHost(workflowID);
-            }
+//            }
             System.out.println("modulus is " + result);
         } while (!abortModulusGeneration && !passPrimalityTest);
         return result;
@@ -153,11 +153,11 @@ public class WorkerMain {
             generateFGH(b, u, sieve.getM(), subWorkflowID);
             b = updateBPiece(subWorkflowID, sieve.getM());
         }
-        // to prevent even number
         BigInteger randomFactor = sieve.getRandomFactor(rnd);
-        if (b.mod(BigInteger.TWO).equals(randomFactor.mod(BigInteger.TWO))) {
-            randomFactor = randomFactor.add(BigInteger.ONE);
-        }
+        // no need for even number filter with modified sieve
+//        if (b.mod(BigInteger.TWO).equals(randomFactor.mod(BigInteger.TWO))) {
+//            randomFactor = randomFactor.add(BigInteger.ONE);
+//        }
         return randomFactor.multiply(sieve.getM()).add(b);
     }
 
