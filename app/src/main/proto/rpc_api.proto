@@ -28,8 +28,7 @@ service WorkerService {
 
   /* Private key generation utilities */
   rpc generatePrivateKey(StdRequest) returns (StdResponse) {}
-  rpc exchangeGamma(StdRequest) returns (StdResponse) {}
-  rpc exchangeGammaSum(StdRequest) returns (StdResponse) {}
+  rpc exchangeDarioGamma(StdRequest) returns (StdResponse) {}
 
   rpc decrypt(StdRequest) returns (StdResponse) {}
 }

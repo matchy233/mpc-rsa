@@ -13,14 +13,14 @@ import java.io.StringWriter;
 import java.math.BigInteger;
 
 public class Key {
-    private BigInteger N;
-    private BigInteger d;
+    private BigInteger N = null;
+    private BigInteger d = null;
     private BigInteger e;
 
     public Key() {
         this.e = BigInteger.valueOf(65537);
-        this.d = BigInteger.valueOf(0);
-        this.N = BigInteger.valueOf(0);
+//        this.d = BigInteger.valueOf(0);
+//        this.N = BigInteger.valueOf(0);
     }
 
     public void setD(BigInteger d) {

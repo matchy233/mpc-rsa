@@ -48,8 +48,8 @@ public class ManagerRPCSender {
         });
     }
 
-    public void sendGeneratePrivateKeyRequest(int id) {
-        stubs[id - 1].generatePrivateKey(RpcUtility.Request.newStdRequest(0), new StreamObserver<StdResponse>() {
+    public void sendGeneratePrivateKeyRequest(int id, long workflowID) {
+        stubs[id - 1].generatePrivateKey(RpcUtility.Request.newStdRequest(0, workflowID), new StreamObserver<StdResponse>() {
             @Override
             public void onNext(StdResponse response) {
                 manager.getDataReceiver().receivePrivateKeyGenerationResponse();
@@ -110,14 +110,14 @@ public class ManagerRPCSender {
         });
     }
 
-    public void sendDecryptionRequest(int id, String encryptedMessage, String[] resultBucket) {
+    public void sendDecryptionRequest(int id, String encryptedMessage) {
         stubs[id - 1].decrypt(RpcUtility.Request.newStdRequest(id, encryptedMessage),
                 new StreamObserver<StdResponse>() {
                     @Override
                     public void onNext(StdResponse response) {
                         int id = response.getId();
                         String shadow = new String(response.getContents().toByteArray());
-                        manager.getDataReceiver().receiveDecryptionResult(id, shadow, resultBucket);
+                        manager.getDataReceiver().receiveDecryptionResult(id, shadow);
                     }
 
                     @Override

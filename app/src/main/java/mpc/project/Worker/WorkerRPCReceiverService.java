@@ -4,7 +4,6 @@ import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import mpc.project.*;
-import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
 
 import java.math.BigInteger;
@@ -143,21 +142,11 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     }
 
     @Override
-    public void exchangeGamma(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-        int id = request.getId();
-        BigInteger gamma = new BigInteger(request.getContents().toByteArray());
-        long workflowID = request.getWorkflowID();
-        worker.getDataReceiver().receiveGamma(id, gamma, workflowID);
-        responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void exchangeGammaSum(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+    public void exchangeDarioGamma(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         int id = request.getId();
         BigInteger gammaSum = new BigInteger(request.getContents().toByteArray());
         long workflowID = request.getWorkflowID();
-        worker.getDataReceiver().receiveGammaSum(id, gammaSum, workflowID);
+        worker.getDataReceiver().receiveDarioGamma(id, gammaSum, workflowID);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
         responseObserver.onCompleted();
     }
@@ -173,7 +162,7 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     @Override
     public void decrypt(StdRequest request, StreamObserver<StdResponse> responseObserver) {
         String encryptedString = new String(request.getContents().toByteArray());
-        String shadow = RSA.localDecrypt(encryptedString, worker.getKey());
+        String shadow = worker.decrypt(encryptedString);
         responseObserver.onNext(RpcUtility.Response.newStdResponse(id, shadow));
         responseObserver.onCompleted();
     }

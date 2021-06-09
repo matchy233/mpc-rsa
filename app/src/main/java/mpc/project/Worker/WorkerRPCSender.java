@@ -1,15 +1,11 @@
 package mpc.project.Worker;
 
-import io.grpc.Context;
 import io.grpc.stub.StreamObserver;
 import mpc.project.*;
 import mpc.project.util.RpcUtility;
 
 import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.concurrent.*;
-import java.util.stream.IntStream;
 
 public class WorkerRPCSender {
     private WorkerServiceGrpc.WorkerServiceStub[] stubs;
@@ -173,44 +169,16 @@ public class WorkerRPCSender {
         }
     }
 
-    public void broadcastGammaArr(BigInteger[] gammaArr, long workflowID) {
-        worker.getDataReceiver().receiveGamma(worker.getId(), gammaArr[worker.getId() - 1], workflowID);
-        senderExecutor.execute(() -> {
-            for (int id = 1; id <= worker.getClusterSize(); id++) {
-                if (id == worker.getId()) {
-                    continue;
-                }
-                StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gammaArr[id - 1], workflowID);
-                int finalId = id;
-                stubs[id - 1].exchangeGamma(request, new StreamObserver<>() {
-                    @Override
-                    public void onNext(StdResponse response) {
-                    }
-
-                    @Override
-                    public void onError(Throwable t) {
-                        System.out.println("sendGamma RPC error for " + finalId + " : " + t.getMessage());
-                        System.exit(-1);
-                    }
-
-                    @Override
-                    public void onCompleted() {
-                    }
-                });
-            }
-        });
-    }
-
-    public void broadcastGammaSum(BigInteger gammaSum, long workflowID) {
-        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), gammaSum, workflowID);
-        worker.getDataReceiver().receiveGammaSum(worker.getId(), gammaSum, workflowID);
+    public void broadcastDarioGamma(BigInteger darioGamma, long workflowID) {
+        StdRequest request = RpcUtility.Request.newStdRequest(worker.getId(), darioGamma, workflowID);
+        worker.getDataReceiver().receiveDarioGamma(worker.getId(), darioGamma, workflowID);
         senderExecutor.execute(() -> {
             for (int id = 1; id <= worker.getClusterSize(); id++) {
                 if (id == worker.getId()) {
                     continue;
                 }
                 int finalId = id;
-                stubs[id - 1].exchangeGammaSum(request, new StreamObserver<>() {
+                stubs[id - 1].exchangeDarioGamma(request, new StreamObserver<>() {
                     @Override
                     public void onNext(StdResponse response) {
                     }

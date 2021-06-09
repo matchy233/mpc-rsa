@@ -4,7 +4,6 @@ import io.grpc.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -224,8 +223,7 @@ public class WorkerMain {
             BigDecimal Ni = new BigDecimal(nPieceArr[i]);
             N = N.add(Ni.multiply(BigDecimal.valueOf(values[i])));
         }
-        BigInteger modulus = N.toBigInteger().mod(randomPrime);
-        return modulus;
+        return N.toBigInteger().mod(randomPrime);
     }
 
     public boolean primalityTestHost(long workflowID) {
@@ -266,46 +264,81 @@ public class WorkerMain {
         return g.modPow(p.add(q), modulus);
     }
 
+    private boolean keyReady = false;
+    private void waitForKey(){
+        while(!keyReady){
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    private void setKeyReady(boolean keyStatus){
+        keyReady = keyStatus;
+    }
+
     public void generatePrivateKey(long workflowID) {
-        // Todo: change server 1 every time to do load balancing
+        setKeyReady(false);
+
+        System.out.println("generate Private key: " + "start");
         Pair<BigInteger, BigInteger> pair = pqMap.get(workflowID);
         BigInteger p = pair.first;
         BigInteger q = pair.second;
+        System.out.println("p is " + p);
+        System.out.println("q is " + q);
         BigInteger modulus = modulusMap.get(workflowID);
         cleanupModulusGenerationMap();
+
         key.setN(modulus);
+
+        System.out.println("generate Private key: " + "compute Phi");
+
         BigInteger phi = (id == 1) ?
                 key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
-        BigInteger[] gammaArrLocal = MathUtility.generateRandomSumArray(phi, clusterSize, rnd);
-        rpcSender.broadcastGammaArr(gammaArrLocal, workflowID);
-        BigInteger[] gammaArr = new BigInteger[clusterSize];
-        dataReceiver.waitGamma(workflowID, gammaArr);
-        BigInteger gammaSum = MathUtility.arraySum(gammaArr);
-        BigInteger[] gammaSumArr = new BigInteger[clusterSize];
-        rpcSender.broadcastGammaSum(gammaSum, workflowID);
-        dataReceiver.waitGammaSum(clusterSize, gammaSumArr);
-        BigInteger l = MathUtility.arraySum(gammaSumArr).mod(key.getE());
+        System.out.println("phi is " + phi);
 
-        BigDecimal zeta = BigDecimal.ONE.divide(new BigDecimal(l), RoundingMode.HALF_UP)
-                .remainder(new BigDecimal(key.getE()));
+        BigInteger darioRandomizer = BigInteger.valueOf(rnd.nextLong());
+        BigInteger darioGammaPiece = phi.add(key.getE().multiply(darioRandomizer));
 
-        BigInteger d = zeta.negate()
-                .multiply(new BigDecimal(phi))
-                .divide(new BigDecimal(key.getE()), RoundingMode.HALF_UP)
-                .toBigInteger();
+        System.out.println("generate Private key: " + "gamma sum array");
+        BigInteger[] darioGammaPieceArr = new BigInteger[clusterSize];
+        rpcSender.broadcastDarioGamma(darioGammaPiece, workflowID);
+        dataReceiver.waitDarioGamma(workflowID, darioGammaPieceArr);
+
+        BigInteger darioGamma = MathUtility.arraySum(darioGammaPieceArr);
+
+        BigInteger a = darioGamma.modInverse(key.getE());
+        BigInteger b = BigInteger.ONE.subtract(a.multiply(darioGamma)).divide(key.getE());
+        System.out.println("verify: " + a.multiply(darioGamma).add(b.multiply(key.getE())));
+
+        BigInteger d = (id == 1)?
+                a.multiply(darioRandomizer).add(b) :
+                a.multiply(darioRandomizer);
+
+        System.out.println("d is " + d);
+
+        System.out.println("generate Private key: " + "finished trial generate private key!");
+        key.setD(d);
+        setKeyReady(true);
 
         // Start a trial division
         if (id == 1) {
-            String testMessage = "test";
-            String encryptedTestMessage = RSA.encrypt(testMessage, key);
+            String testMsg = "Lorem ipsum dolor sit amet\n";
+            String encryptedTestMessage = RSA.encrypt(testMsg, key);
             String[] decryptionResults = trialDecryption(encryptedTestMessage, workflowID);
+
             boolean foundR = false;
-            for (int r = 0; r < clusterSize; r++) {
-                // Fixme: I'm not sure if this is implemented correctly
-                key.setD(d.subtract(BigInteger.valueOf(r)));
+            for (int r = 0; r <= clusterSize; r++) {
+                key.setD(d.add(BigInteger.valueOf(r)));
                 decryptionResults[0] = RSA.localDecrypt(encryptedTestMessage, key);
-                foundR = RSA.combineDecryptionResult(decryptionResults, key).equals(testMessage);
+                String tryD = RSA.combineDecryptionResult(decryptionResults, key);
+
+                System.out.println("r is " + r + " and decryption is " + tryD);
+
+                foundR = tryD.equals(testMsg);
+
                 if (foundR) {
                     break;
                 }
@@ -314,15 +347,18 @@ public class WorkerMain {
                 System.out.println("Cannot find r!! Something is wrong with our implementation!");
                 System.exit(-6);
             }
-        } else {
-            key.setD(d);
         }
     }
 
-    private String[] trialDecryption(String encryptedMessage, long workflowID) {
+    public String decrypt(String encryptedMessage){
+        waitForKey();
+        return RSA.localDecrypt(encryptedMessage, key);
+    }
+
+    private String[] trialDecryption(String encryptedString, long workflowID) {
         String[] result = new String[clusterSize];
         for (int i = 1; i <= clusterSize; i++) {
-            rpcSender.sendDecryptRequest(i, encryptedMessage, workflowID);
+            rpcSender.sendDecryptRequest(i, encryptedString, workflowID);
         }
         System.out.println("Waiting for trial decryption to complete");
         dataReceiver.waitShadow(workflowID, result);

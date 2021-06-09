@@ -153,78 +153,42 @@ public class WorkerDataReceiver {
         Arrays.setAll(nPieceArr, i -> nPieceArrMap.get(workflowID)[i]);
     }
 
-    private final Object gammaLock = new Object();
-    private final Map<Long, Semaphore> gammaReadyFlagMap = new ConcurrentHashMap<>();
-    private final Map<Long, BigInteger[]> gammaArrMap = new ConcurrentHashMap<>();
+    private final Object darioGammaLock = new Object();
+    private final Map<Long, Semaphore> darioGammaReadyFlagMap = new ConcurrentHashMap<>();
+    private final Map<Long, BigInteger[]> darioGammaArrMap = new ConcurrentHashMap<>();
 
-    private void emptyCheckGamma(long workflowID) {
-        synchronized (gammaLock) {
-            if (!gammaReadyFlagMap.containsKey(workflowID)) {
-                gammaReadyFlagMap.put(workflowID, new Semaphore(0));
-                gammaArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
+    private void emptyCheckDarioGamma(long workflowID) {
+        synchronized (darioGammaLock) {
+            if (!darioGammaReadyFlagMap.containsKey(workflowID)) {
+                darioGammaReadyFlagMap.put(workflowID, new Semaphore(0));
+                darioGammaArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
             }
         }
     }
 
-    private void cleanGammaBucket(long workflowID) {
-        synchronized (gammaLock) {
-            gammaReadyFlagMap.remove(workflowID);
-            gammaArrMap.remove(workflowID);
+    private void cleanDarioGammaBucket(long workflowID) {
+        synchronized (darioGammaLock) {
+            darioGammaReadyFlagMap.remove(workflowID);
+            darioGammaArrMap.remove(workflowID);
         }
     }
 
-    public void receiveGamma(int id, BigInteger gamma, long workflowID) {
-        emptyCheckGamma(workflowID);
-        gammaArrMap.get(workflowID)[id - 1] = gamma;
-        gammaReadyFlagMap.get(workflowID).release();
+    public void receiveDarioGamma(int id, BigInteger gammaSum, long workflowID) {
+        System.out.println("generate Private key: " + "receive gammaSum from " + id);
+        emptyCheckDarioGamma(workflowID);
+        darioGammaArrMap.get(workflowID)[id - 1] = gammaSum;
+        darioGammaReadyFlagMap.get(workflowID).release();
     }
 
-    public void waitGamma(long workflowID, BigInteger[] gammaArr) {
-        emptyCheckGamma(workflowID);
+    public void waitDarioGamma(long workflowID, BigInteger[] darioGammaArr) {
+        emptyCheckDarioGamma(workflowID);
         try {
-            gammaReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
+            darioGammaReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        Arrays.setAll(gammaArr, i -> gammaArrMap.get(workflowID)[i]);
-        cleanGammaBucket(workflowID);
-    }
-
-    private final Object gammaSumLock = new Object();
-    private final Map<Long, Semaphore> gammaSumReadyFlagMap = new ConcurrentHashMap<>();
-    private final Map<Long, BigInteger[]> gammaSumArrMap = new ConcurrentHashMap<>();
-
-    private void emptyCheckGammaSum(long workflowID) {
-        synchronized (gammaSumLock) {
-            if (!gammaSumReadyFlagMap.containsKey(workflowID)) {
-                gammaSumReadyFlagMap.put(workflowID, new Semaphore(0));
-                gammaSumArrMap.put(workflowID, new BigInteger[worker.getClusterSize()]);
-            }
-        }
-    }
-
-    private void cleanGammaSumBucket(long workflowID) {
-        synchronized (gammaSumLock) {
-            gammaSumReadyFlagMap.remove(workflowID);
-            gammaSumArrMap.remove(workflowID);
-        }
-    }
-
-    public void receiveGammaSum(int id, BigInteger gammaSum, long workflowID) {
-        emptyCheckGammaSum(workflowID);
-        gammaSumArrMap.get(workflowID)[id - 1] = gammaSum;
-        gammaSumReadyFlagMap.get(workflowID).release();
-    }
-
-    public void waitGammaSum(long workflowID, BigInteger[] gammaSumArr) {
-        emptyCheckGammaSum(workflowID);
-        try {
-            gammaSumReadyFlagMap.get(workflowID).acquire(worker.getClusterSize());
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        Arrays.setAll(gammaSumArr, i -> gammaArrMap.get(workflowID)[i]);
-        cleanGammaSumBucket(workflowID);
+        Arrays.setAll(darioGammaArr, i -> darioGammaArrMap.get(workflowID)[i]);
+        cleanDarioGammaBucket(workflowID);
     }
 
     private final Object shadowLock = new Object();

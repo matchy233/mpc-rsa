@@ -2,6 +2,7 @@ package mpc.project.Manager;
 
 import io.grpc.*;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Time;
 import java.time.Duration;
@@ -21,6 +22,7 @@ import mpc.project.util.Pair;
 import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
 import org.apache.commons.lang.time.DurationFormatUtils;
+import org.checkerframework.checker.units.qual.K;
 
 public class ManagerMain {
     final int clusterMaxSize = 48;
@@ -147,32 +149,39 @@ public class ManagerMain {
         });
     }
 
-    private long validModulusGeneration(){
+    private long validModulusGeneration() {
         dataReceiver.resetModulusGenerationBucket();
         Instant start = Instant.now();
-        int generationHostBound = parallelGeneration? clusterSize : 1;
-        for(int id = 1; id <= generationHostBound; id++){
+        int generationHostBound = parallelGeneration ? clusterSize : 1;
+        for (int id = 1; id <= generationHostBound; id++) {
             rpcSender.sendHostModulusGenerationRequest(id, keyBitLength, randomPrime, id);
         }
         Pair<BigInteger, Long> modulusWorkflowPair = dataReceiver.waitModulusGeneration();
         BigInteger resultModulus = modulusWorkflowPair.first;
         Long resultWorkflowID = modulusWorkflowPair.second;
         System.out.println(
-                "finished modulus generation, modulus: "+resultModulus+", workflow id: "+resultWorkflowID
+                "finished modulus generation, modulus: " + resultModulus + ", workflow id: " + resultWorkflowID
         );
         Instant end = Instant.now();
         long durationMillis = Duration.between(start, end).toMillis();
         String timeString = DurationFormatUtils.formatDuration(durationMillis, "HH:mm:ss.SSS");
         System.out.println("generation time consumption: " + timeString);
-        for(int id = 1; id <= clusterSize; id++){
+        for (int id = 1; id <= clusterSize; id++) {
             rpcSender.sendAbortModulusGenerationRequest(id);
+        }
+        this.key = new Key();
+        key.setN(resultModulus);
+        try {
+            System.out.println(key.toPKCS1PublicString());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return resultWorkflowID;
     }
 
-    private void generatePrivateKey() {
+    private void generatePrivateKey(long workflowID) {
         for (int id = 1; id <= clusterSize; id++) {
-            rpcSender.sendGeneratePrivateKeyRequest(id);
+            rpcSender.sendGeneratePrivateKeyRequest(id, workflowID);
         }
         dataReceiver.waitPrivateKeyGeneration();
     }
@@ -180,9 +189,9 @@ public class ManagerMain {
     public String[] decrypt(String s) {
         String[] decryptionShadows = new String[clusterSize];
         for (int id = 1; id <= clusterSize; id++) {
-            rpcSender.sendDecryptionRequest(id, s, decryptionShadows);
+            rpcSender.sendDecryptionRequest(id, s);
         }
-        dataReceiver.waitDecryptionShadow();
+        dataReceiver.waitDecryptionShadow(decryptionShadows);
         return decryptionShadows;
     }
 
@@ -190,16 +199,16 @@ public class ManagerMain {
         formCluster();
         formNetwork();
         long workflowID = validModulusGeneration();
-        //generatePrivateKey();
+        generatePrivateKey(workflowID);
         Scanner scanner = new Scanner(System.in);
-        while(true){
+        while (true) {
             String s = scanner.nextLine().trim();
-            if(s.equals("quit")){
+            if (s.equals("quit")) {
                 break;
             }
-            if(s.equals("regenerate")){
+            if (s.equals("regenerate")) {
                 workflowID = validModulusGeneration();
-                //generatePrivateKey();
+                generatePrivateKey(workflowID);
                 continue;
             }
             String encryptedString = RSA.encrypt(s, key);

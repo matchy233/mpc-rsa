@@ -16,7 +16,6 @@ public class ManagerDataReceiver {
         try {
             networkFormedFlag.acquire();
             privateKeyGenerationFlag.acquire();
-            shadowCollectedFlag.acquire();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -92,25 +91,24 @@ public class ManagerDataReceiver {
     }
 
     final private Object decryptionLock = new Object();
-    final private Semaphore shadowCollectedFlag = new Semaphore(1);
+    final private Semaphore shadowCollectedFlag = new Semaphore(0);
+    private String[] resultBucket = null;
     volatile private int decryptionCounter = 0;
 
-    public void receiveDecryptionResult(int id, String shadow, String[] resultBucket) {
-        resultBucket[id - 1] = shadow;
-        synchronized (decryptionLock) {
-            decryptionCounter++;
-            if (decryptionCounter == manager.getClusterSize()) {
-                decryptionCounter = 0;
-                shadowCollectedFlag.release();
-            }
+    public synchronized void receiveDecryptionResult(int id, String shadow) {
+        if(resultBucket == null){
+            resultBucket = new String[manager.getClusterSize()];
         }
+        resultBucket[id - 1] = shadow;
+        shadowCollectedFlag.release();
     }
 
-    public void waitDecryptionShadow() {
+    public void waitDecryptionShadow(String[] resultBucket) {
         try {
-            shadowCollectedFlag.acquire();
+            shadowCollectedFlag.acquire(manager.getClusterSize());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        System.arraycopy(this.resultBucket, 0, resultBucket, 0, resultBucket.length);
     }
 }
