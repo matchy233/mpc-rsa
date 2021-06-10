@@ -63,7 +63,8 @@ Read [this nice blog post](https://chris.beams.io/posts/git-commit/) for explana
 
 ## Reference
 
-1. Malkin, M., Wu, T. D., & Boneh, D. (1999, February). Experimenting with Shared Generation of RSA Keys. In **NDSS** (*
-   The Network and Distributed System Security Symposium*).
+1. Malkin, M., Wu, T. D., & Boneh, D. (1999, February). Experimenting with Shared Generation of RSA Keys. In **NDSS** (*The Network and Distributed System Security Symposium*).
 2. Boneh, D., & Franklin, M. (1997, August). Efficient generation of shared RSA keys. In **CRYPTO** (*Annual
    international cryptology conference*) (pp. 425-439). Springer, Berlin, Heidelberg.
+3. Catalano, D., Gennaro, R., & Halevi, S. (2000, May). Computing inverses over a shared secret modulus. In **Eurocrypt**(*International Conference on the Theory and Applications of Cryptographic Techniques*) (pp. 190-206).
+   Springer, Berlin, Heidelberg.
