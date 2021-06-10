@@ -127,7 +127,7 @@ public class ManagerMain {
         this.keyBitLength = keyBitLength;
         this.parallelGeneration = parallelGeneration;
         // Fixme: hard codding 3 * keyBitLength might be a bad idea for large bit length, maybe need to look into this
-        this.randomPrime = BigInteger.probablePrime(3 * keyBitLength, rnd);
+        this.randomPrime = BigInteger.probablePrime(3 * keyBitLength / 2, rnd);
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new ManagerRPCReceiverService())

@@ -111,6 +111,10 @@ public class WorkerMain {
             rpcSender.broadcastModulusGenerationRequest(bitNum, randomPrime, workflowID);
             System.out.println("host waiting for modulus generation");
             result = dataReceiver.waitModulus(workflowID);
+            if(result.bitLength() != bitNum){
+                // the result's bit length does not match the desired one
+                continue;
+            }
             // no need for trial division with the modified version sieve
 //            if (result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)) {
                 passPrimalityTest = primalityTestHost(workflowID);
@@ -120,9 +124,11 @@ public class WorkerMain {
         return result;
     }
 
-    public BigInteger generateModulus(int hostID, int bitNum, BigInteger randomPrime, long workflowID) {
-        BigInteger p = generateSievedProbablePrime(hostID, bitNum, workflowID);
-        BigInteger q = generateSievedProbablePrime(hostID, bitNum, workflowID);
+    public BigInteger generateModulus(int hostID, int keyBitLength, BigInteger randomPrime, long workflowID) {
+        int pBitLength = keyBitLength / 2;
+        int qBitLength = keyBitLength - pBitLength;
+        BigInteger p = generateSievedProbablePrime(hostID, pBitLength, workflowID);
+        BigInteger q = generateSievedProbablePrime(hostID, qBitLength, workflowID);
         generateFGH(p, q, randomPrime, workflowID);
         generateNPiece(randomPrime, workflowID);
         BigInteger modulus = generateN(randomPrime, workflowID);

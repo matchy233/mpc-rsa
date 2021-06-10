@@ -59,7 +59,11 @@ public class Sieve {
     }
 
     public BigInteger getRandomFactor(Random rnd) {
-        return MathUtility.genRandBig(BigInteger.TWO.pow(bitNum).divide(M), rnd);
+        // make sure the generated key matches the desired bit length
+        return MathUtility.genRandBig(bitNum-1, rnd)
+                .add(M)
+                .add(BigInteger.TWO.pow(bitNum-1))
+                .divide(BigInteger.valueOf(clusterSize)).divide(M);
     }
 
     public Sieve() {
