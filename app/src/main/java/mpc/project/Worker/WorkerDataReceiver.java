@@ -174,7 +174,7 @@ public class WorkerDataReceiver {
     }
 
     public void receiveDarioGamma(int id, BigInteger gammaSum, long workflowID) {
-        System.out.println("generate Private key: " + "receive gammaSum from " + id);
+        worker.dummyLog("generate Private key: " + "receive gammaSum from " + id);
         emptyCheckDarioGamma(workflowID);
         darioGammaArrMap.get(workflowID)[id - 1] = gammaSum;
         darioGammaReadyFlagMap.get(workflowID).release();

@@ -23,7 +23,7 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
         StdResponse res = RpcUtility.Response.newStdResponse(id);
         responseObserver.onNext(res);
         responseObserver.onCompleted();
-        System.out.println("connected to Manager");
+        worker.dummyLog("connected to Manager");
     }
 
     @Override
@@ -32,7 +32,7 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
         String[] addressBook = midString.split(";");
         StdResponse response = RpcUtility.Response.newStdResponse(id);
         WorkerServiceGrpc.WorkerServiceStub[] stubs = new WorkerServiceGrpc.WorkerServiceStub[addressBook.length];
-        System.out.println("received and parsed addressBook: ");
+        worker.dummyLog("received and parsed addressBook: ");
         for (int i = 0; i < addressBook.length; i++) {
             System.out.println(addressBook[i]);
             Channel channel = ManagedChannelBuilder.forTarget(addressBook[i]).usePlaintext().build();
@@ -47,7 +47,7 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     @Override
     public void shutDownWorker(StdRequest request, StreamObserver<StdResponse> responseObserver){
         String shutDownMessage = new String((request.getContents().toByteArray()));
-        System.out.println("Shutting down worker by shutDown RPC request, message: " + shutDownMessage);
+        worker.dummyLog("Shutting down worker by shutDown RPC request, message: " + shutDownMessage);
         System.exit(0);
     }
 

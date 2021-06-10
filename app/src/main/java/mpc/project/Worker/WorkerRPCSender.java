@@ -38,7 +38,7 @@ public class WorkerRPCSender {
 
                 @Override
                 public void onError(Throwable t) {
-                    System.out.println("Broadcast modulus generation error, id: " + finalId + ", " + t.getMessage());
+                    worker.dummyLog("Broadcast modulus generation error, id: " + finalId + ", " + t.getMessage());
                     System.exit(-1);
                 }
 
@@ -66,7 +66,7 @@ public class WorkerRPCSender {
 
                     @Override
                     public void onError(Throwable t) {
-                        System.out.println("initialize B piece RPC error for " + finalId + " : " + t.getMessage());
+                        worker.dummyLog("initialize B piece RPC error for " + finalId + " : " + t.getMessage());
                         System.exit(-1);
                     }
 
@@ -98,7 +98,7 @@ public class WorkerRPCSender {
 
                     @Override
                     public void onError(Throwable t) {
-                        System.out.println("exchangePQH RPC error for " + finalId + " : " + t.getMessage());
+                        worker.dummyLog("exchangePQH RPC error for " + finalId + " : " + t.getMessage());
                         System.exit(-1);
                     }
 
@@ -126,7 +126,7 @@ public class WorkerRPCSender {
 
                     @Override
                     public void onError(Throwable t) {
-                        System.out.println("sendNPiece RPC error for " + finalId + " : " + t.getMessage());
+                        worker.dummyLog("sendNPiece RPC error for " + finalId + " : " + t.getMessage());
                         System.exit(-1);
                     }
 
@@ -152,7 +152,7 @@ public class WorkerRPCSender {
 
                 @Override
                 public void onError(Throwable t) {
-                    System.out.println("primalityTest to Guests RPC Error for " + finalId + " : " + t.getMessage());
+                    worker.dummyLog("primalityTest to Guests RPC Error for " + finalId + " : " + t.getMessage());
                     System.exit(-1);
                 }
 
@@ -180,7 +180,7 @@ public class WorkerRPCSender {
 
                     @Override
                     public void onError(Throwable t) {
-                        System.out.println("sendGamma RPC error for " + finalId + " : " + t.getMessage());
+                        worker.dummyLog("sendGamma RPC error for " + finalId + " : " + t.getMessage());
                         System.exit(-1);
                     }
 
@@ -204,7 +204,7 @@ public class WorkerRPCSender {
 
                     @Override
                     public void onError(Throwable t) {
-                        System.out.println("trial decryption error: " + t.getMessage());
+                        worker.dummyLog("trial decryption error: " + t.getMessage());
                         System.exit(-1);
                     }
 

@@ -42,6 +42,8 @@ public class App {
     }
 
     static boolean managerMode = false;
+    static boolean workerMode = true;
+    static boolean verboseMode = false;
     static int portNum = 5083;
     static int keyBitLength = 1024;
     static boolean managerParallelGeneration = false;
@@ -53,10 +55,15 @@ public class App {
                 case "--mode":
                 case "-m":
                     if (args[i + 1].equals("manager")) {
+                        workerMode = false;
                         managerMode = true;
                     } else if (args[i + 1].equals("worker")) {
                         managerMode = false;
-                    } else {
+                        workerMode = true;
+                    } else if (args[i + 1].equals("both")){
+                        workerMode = true;
+                        managerMode = true;
+                    } else{
                         throw new UnsupportedArgException("unsupported mode");
                     }
                     break;
@@ -77,13 +84,10 @@ public class App {
                     }
                     break;
                 case "--parallel":
-                case "-P":
-                    try {
-                        managerParallelGeneration = !(Integer.parseInt(args[i + 1]) == 0);
-                    } catch (NumberFormatException e) {
-                        throw new UnsupportedArgException("unsupported parallel flag");
-                    }
+                case "-P":{
+                    managerParallelGeneration = true;
                     break;
+                }
                 case "--clusterConfig":
                 case "-c": {
                     String path = args[i+1];
@@ -98,6 +102,12 @@ public class App {
                     } catch (FileNotFoundException e) {
                         throw new UnsupportedArgException("cannot load cluster config file");
                     }
+                    break;
+                }
+                case "--verbose":
+                case "-v":{
+                    verboseMode = true;
+                    break;
                 }
             }
         }
@@ -114,13 +124,16 @@ public class App {
             System.out.println("Unsupported Argument: " + e.content);
             return;
         }
+        WorkerMain workerMain = null;
+        if (workerMode){
+            workerMain = new WorkerMain(portNum, verboseMode);
+            workerMain.run();
+        }
         if (managerMode) {
             ManagerMain managerMain = new ManagerMain(
                     portNum, keyBitLength, managerParallelGeneration, true, addressBook);
             managerMain.runInteractive();
-        } else {
-            WorkerMain workerMain = new WorkerMain(portNum);
-            workerMain.run();
         }
+        workerMain.awaitTermination();
     }
 }

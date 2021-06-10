@@ -4,6 +4,7 @@ import io.grpc.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +28,7 @@ public class WorkerMain {
 
     private final int portNum;
     private int id;
+    private final boolean verbose;
 
     public int getId() {
         return id;
@@ -77,9 +79,18 @@ public class WorkerMain {
         dataReceiver.cleanupModulusGenerationBucket();
     }
 
-    public WorkerMain(int portNum) {
+    public WorkerMain(int portNum, boolean verbose) {
         this.portNum = portNum;
+        this.verbose = verbose;
         this.rnd = new Random();
+    }
+
+    public void dummyLog(String log){
+        if(verbose){
+            Instant now = Instant.now();
+            String time = now.toString();
+            System.out.println(time + " " + log);
+        }
     }
 
     public void run() {
@@ -91,15 +102,10 @@ public class WorkerMain {
                     .executor(Executors.newCachedThreadPool())
                     .build()
                     .start();
-            System.out.println("Waiting for manager to connect");
-            this.server.awaitTermination();
+            dummyLog("Waiting for manager to connect");
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            e.printStackTrace();
             System.exit(-2);
-        } finally {
-            if (server != null) {
-                server.shutdownNow();
-            }
         }
     }
 
@@ -109,7 +115,7 @@ public class WorkerMain {
         setAbortModulusGeneration(false);
         do {
             rpcSender.broadcastModulusGenerationRequest(bitNum, randomPrime, workflowID);
-            System.out.println("host waiting for modulus generation");
+            dummyLog("host waiting for modulus generation");
             result = dataReceiver.waitModulus(workflowID);
             if(result.bitLength() != bitNum){
                 // the result's bit length does not match the desired one
@@ -119,7 +125,7 @@ public class WorkerMain {
 //            if (result.gcd(BigInteger.valueOf(30)).equals(BigInteger.ONE)) {
                 passPrimalityTest = primalityTestHost(workflowID);
 //            }
-            System.out.println("modulus is " + result);
+            dummyLog("modulus is " + result);
         } while (!abortModulusGeneration && !passPrimalityTest);
         return result;
     }
@@ -234,7 +240,7 @@ public class WorkerMain {
 
     public boolean primalityTestHost(long workflowID) {
         if (!modulusMap.containsKey(workflowID)) {
-            System.out.println("workflowID not found! id: " + workflowID);
+            dummyLog("workflowID not found! id: " + workflowID);
             return false;
         }
         BigInteger modulus = modulusMap.get(workflowID);
@@ -287,28 +293,26 @@ public class WorkerMain {
     public void generatePrivateKey(long workflowID) {
         setKeyReady(false);
 
-        System.out.println("generate Private key: " + "start");
+        dummyLog("generate Private key: " + "start");
         Pair<BigInteger, BigInteger> pair = pqMap.get(workflowID);
         BigInteger p = pair.first;
         BigInteger q = pair.second;
-        System.out.println("p is " + p);
-        System.out.println("q is " + q);
         BigInteger modulus = modulusMap.get(workflowID);
         cleanupModulusGenerationMap();
 
         key.setN(modulus);
 
-        System.out.println("generate Private key: " + "compute Phi");
+        dummyLog("generate Private key: " + "compute Phi");
 
         BigInteger phi = (id == 1) ?
                 key.getN().subtract(p).subtract(q).add(BigInteger.ONE) :
                 BigInteger.ZERO.subtract(p).subtract((q));
-        System.out.println("phi is " + phi);
+        dummyLog("phi is " + phi);
 
         BigInteger darioRandomizer = BigInteger.valueOf(rnd.nextLong());
         BigInteger darioGammaPiece = phi.add(key.getE().multiply(darioRandomizer));
 
-        System.out.println("generate Private key: " + "gamma sum array");
+        dummyLog("generate Private key: " + "gamma sum array");
         BigInteger[] darioGammaPieceArr = new BigInteger[clusterSize];
         rpcSender.broadcastDarioGamma(darioGammaPiece, workflowID);
         dataReceiver.waitDarioGamma(workflowID, darioGammaPieceArr);
@@ -317,15 +321,15 @@ public class WorkerMain {
 
         BigInteger a = darioGamma.modInverse(key.getE());
         BigInteger b = BigInteger.ONE.subtract(a.multiply(darioGamma)).divide(key.getE());
-        System.out.println("verify: " + a.multiply(darioGamma).add(b.multiply(key.getE())));
 
         BigInteger d = (id == 1)?
                 a.multiply(darioRandomizer).add(b) :
                 a.multiply(darioRandomizer);
 
-        System.out.println("d is " + d);
+        // we are not supposed to print it but just for demo
+        dummyLog("d is " + d);
 
-        System.out.println("generate Private key: " + "finished trial generate private key!");
+        dummyLog("generate Private key: " + "finished trial generate private key!");
         key.setD(d);
         setKeyReady(true);
 
@@ -341,7 +345,7 @@ public class WorkerMain {
                 decryptionResults[0] = RSA.localDecrypt(encryptedTestMessage, key);
                 String tryD = RSA.combineDecryptionResult(decryptionResults, key);
 
-                System.out.println("r is " + r + " and decryption is " + tryD);
+                dummyLog("r is " + r + " and decryption is " + tryD);
 
                 foundR = tryD.equals(testMsg);
 
@@ -350,7 +354,7 @@ public class WorkerMain {
                 }
             }
             if (!foundR) {
-                System.out.println("Cannot find r!! Something is wrong with our implementation!");
+                dummyLog("Cannot find r!! Something is wrong with our implementation!");
                 System.exit(-6);
             }
         }
@@ -366,8 +370,16 @@ public class WorkerMain {
         for (int i = 1; i <= clusterSize; i++) {
             rpcSender.sendDecryptRequest(i, encryptedString, workflowID);
         }
-        System.out.println("Waiting for trial decryption to complete");
+        dummyLog("Waiting for trial decryption to complete");
         dataReceiver.waitShadow(workflowID, result);
         return result;
+    }
+
+    public void awaitTermination() {
+        try {
+            server.awaitTermination();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
