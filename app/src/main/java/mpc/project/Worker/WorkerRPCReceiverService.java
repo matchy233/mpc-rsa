@@ -34,7 +34,7 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
         WorkerServiceGrpc.WorkerServiceStub[] stubs = new WorkerServiceGrpc.WorkerServiceStub[addressBook.length];
         worker.dummyLog("received and parsed addressBook: ");
         for (int i = 0; i < addressBook.length; i++) {
-            System.out.println(addressBook[i]);
+            worker.dummyLog(addressBook[i]);
             Channel channel = ManagedChannelBuilder.forTarget(addressBook[i]).usePlaintext().build();
             stubs[i] = WorkerServiceGrpc.newStub(channel);
         }
