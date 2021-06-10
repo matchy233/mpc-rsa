@@ -1,6 +1,6 @@
 # Secure Multiparty Computing (MPC) Module for RSA Keypair Generation and Message Decryption
 
-![GitHub top language](https://img.shields.io/github/languages/top/7942jun/mpc-project?color=orange) ![last commit](https://img.shields.io/github/last-commit/7942jun/mpc-project) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/7942jun/mpc-project/Java%20CI) ![Codecov](https://img.shields.io/codecov/c/github/7942jun/mpc-project)
+![GitHub top language](https://img.shields.io/github/languages/top/7942jun/mpc-project?color=orange) ![last commit](https://img.shields.io/github/last-commit/7942jun/mpc-project) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/7942jun/mpc-project/Java%20CI) ![Codecov](https://img.shields.io/codecov/c/github/7942jun/mpc-project) ![Docker Pulls](https://img.shields.io/docker/pulls/matchy233/mpc-project_manager?label=docker%20pulls&logo=manager) ![Docker Pulls](https://img.shields.io/docker/pulls/matchy233/mpc-project_worker?label=docker%20pulls&logo=manager)
 
 Secure Multiparty Computing (MPC) is a heated research field in cryptography with the goal of creating methods for
 multiple parties to jointly contribute to the computation while keeping the input private to each party.
@@ -15,29 +15,58 @@ Geng ([CuriousLocky](https://github.com/CuriousLocky)) and Minghang Lee ([Matchy
 
 ## Build and Run the Project
 
+### Run from Docker image
+
+The Docker image is available in the Docker hub. You can simply do a `docker pull` to acquire the images.
+
+```bash
+$ docker pull matchy233/mpc-project_manager
+$ docker pull matchy233/mpc-project_worker
+```
+
+It's also possible to build the image from source. We use Docker compose to distribute `manager` and `worker` conveniently. [Install Docker compose](https://docs.docker.com/compose/install/) if not already installed and simply run:
+
+```bash
+$ docker-compose build
+```
+
+Afterwards, you should be able to check the generated images by
+
+```bash
+$ docker images
+REPOSITORY            TAG           IMAGE ID       CREATED             SIZE
+mpc-project_manager   latest        56c59ec8a29d   1 minute ago        445MB
+mpc-project_worker    latest        3432307d295f   2 minutes ago       244MB
+```
+
+To run the application, a simple `docker run` will easily get the manager or worker set up. 
+
+The following 2 commands set up 2 containers. One is named `manager` running in manager mode with the exposed port published to port `8350` of the local machine; the other is named `worker1` running in worker mode with the exposed port published to port `8353` of the local machine. 
+These containers are then accessible through `<local_machine_IP>:<published_port>` from other machines.
+
+```bash
+$ docker run --rm --name manager mpc-project_manager -p 8080:8350
+$ docker run --rm --name worker1 mpc-project_worker -p 8080:8353
+```
+
 ### Build from source
 
-We use `Gradle` to manage and build the project. Simply run the following command if you have `Gradle` installed on your
+We use `Gradle` to manage and build the project. Thus, you can simply build the project from source with `Gradle`. Simply run the following command if you have `Gradle` installed on your
 machine:
 
 ```bash
-$ gradle clean build
+$ gradle clean install
 ```
 
 If you don't have `gradle` installed, you can build with the `Gradle` wrapper:
 
 ```bash
-$ gradlew clean build
+$ gradlew clean install
 ```
 
-After running either command, you can find the executable in `/app/build/distributions/`. Extract `app.tar` or `app.zip`
-and run `app` to use the app.
+After running either command, you can find the executable in `/app/build/install/`. 
 
 Note that the way of compiling and running the application is subject to change.
-
-### Docker image
-
-WIP
 
 ## Commit Message Conventions
 
