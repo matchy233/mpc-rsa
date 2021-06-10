@@ -70,10 +70,6 @@ public class KeyTest {
     public void testToPKCS1PublicString() {
         Key key = new Key();
         key.setN(BigInteger.valueOf(57761551163L));
-        try {
-            System.out.println(key.toPKCS1PublicString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        System.out.println(key.toPKCS1PublicString());
     }
 }
