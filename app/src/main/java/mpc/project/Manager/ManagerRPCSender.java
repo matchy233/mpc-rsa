@@ -30,7 +30,6 @@ public class ManagerRPCSender {
             stubs[id - 1].formNetwork(request, new StreamObserver<StdResponse>() {
                 @Override
                 public void onNext(StdResponse response) {
-                    System.out.println("received by " + response.getId());
                 }
 
                 @Override

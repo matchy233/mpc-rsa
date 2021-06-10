@@ -4,6 +4,11 @@ package mpc.project;
 import mpc.project.Manager.ManagerMain;
 import mpc.project.Worker.WorkerMain;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Scanner;
+
 public class App {
     private static class UnsupportedArgException extends Exception {
         public String content;
@@ -40,34 +45,59 @@ public class App {
     static int portNum = 5083;
     static int keyBitLength = 1024;
     static boolean managerParallelGeneration = false;
+    static String[] addressBook = null;
 
     private static void parseArguments(String[] args) throws UnsupportedArgException {
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--mode") || args[i].equals("-m")) {
-                if (args[i + 1].equals("manager")) {
-                    managerMode = true;
-                } else if (args[i + 1].equals("worker")) {
-                    managerMode = false;
-                } else {
-                    throw new UnsupportedArgException("unsupported mode");
-                }
-            } else if (args[i].equals("--port") || args[i].equals("-p")) {
-                try {
-                    portNum = Integer.parseInt(args[i + 1]);
-                } catch (NumberFormatException e) {
-                    throw new UnsupportedArgException("unsupported port number");
-                }
-            } else if (args[i].equals("--keyBitLength") || args[i].equals("-k")) {
-                try {
-                    keyBitLength = Integer.parseInt(args[i + 1]);
-                } catch (NumberFormatException e) {
-                    throw new UnsupportedArgException("unsupported bit length number");
-                }
-            } else if (args[i].equals("--parallel") || args[i].equals("-P")) {
-                try {
-                    managerParallelGeneration = !(Integer.parseInt(args[i + 1]) == 0);
-                } catch (NumberFormatException e) {
-                    throw new UnsupportedArgException("unsupported parallel flag");
+            switch (args[i]) {
+                case "--mode":
+                case "-m":
+                    if (args[i + 1].equals("manager")) {
+                        managerMode = true;
+                    } else if (args[i + 1].equals("worker")) {
+                        managerMode = false;
+                    } else {
+                        throw new UnsupportedArgException("unsupported mode");
+                    }
+                    break;
+                case "--port":
+                case "-p":
+                    try {
+                        portNum = Integer.parseInt(args[i + 1]);
+                    } catch (NumberFormatException e) {
+                        throw new UnsupportedArgException("unsupported port number");
+                    }
+                    break;
+                case "--keyBitLength":
+                case "-k":
+                    try {
+                        keyBitLength = Integer.parseInt(args[i + 1]);
+                    } catch (NumberFormatException e) {
+                        throw new UnsupportedArgException("unsupported bit length number");
+                    }
+                    break;
+                case "--parallel":
+                case "-P":
+                    try {
+                        managerParallelGeneration = !(Integer.parseInt(args[i + 1]) == 0);
+                    } catch (NumberFormatException e) {
+                        throw new UnsupportedArgException("unsupported parallel flag");
+                    }
+                    break;
+                case "--clusterConfig":
+                case "-c": {
+                    String path = args[i+1];
+                    File file = new File(path);
+                    try {
+                        Scanner fileScanner = new Scanner(file);
+                        ArrayList<String> addressBookList = new ArrayList<>();
+                        while(fileScanner.hasNextLine()){
+                            addressBookList.add(fileScanner.nextLine().trim());
+                        }
+                        addressBook = addressBookList.toArray(new String[0]);
+                    } catch (FileNotFoundException e) {
+                        throw new UnsupportedArgException("cannot load cluster config file");
+                    }
                 }
             }
         }
@@ -85,8 +115,9 @@ public class App {
             return;
         }
         if (managerMode) {
-            ManagerMain managerMain = new ManagerMain(portNum, keyBitLength, managerParallelGeneration);
-            managerMain.run();
+            ManagerMain managerMain = new ManagerMain(
+                    portNum, keyBitLength, managerParallelGeneration, true, addressBook);
+            managerMain.runInteractive();
         } else {
             WorkerMain workerMain = new WorkerMain(portNum);
             workerMain.run();

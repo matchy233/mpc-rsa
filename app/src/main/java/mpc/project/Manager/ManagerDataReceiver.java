@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 public class ManagerDataReceiver {
     final private ManagerMain manager;
@@ -90,7 +91,6 @@ public class ManagerDataReceiver {
         }
     }
 
-    final private Object decryptionLock = new Object();
     final private Semaphore shadowCollectedFlag = new Semaphore(0);
     private String[] resultBucket = null;
     volatile private int decryptionCounter = 0;
@@ -105,7 +105,9 @@ public class ManagerDataReceiver {
 
     public void waitDecryptionShadow(String[] resultBucket) {
         try {
-            shadowCollectedFlag.acquire(manager.getClusterSize());
+            if(!shadowCollectedFlag.tryAcquire(manager.getClusterSize(), 5000, TimeUnit.MILLISECONDS)){
+                manager.dummyLogging("decryption timed out!");
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

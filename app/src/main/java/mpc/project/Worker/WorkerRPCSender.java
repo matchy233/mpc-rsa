@@ -9,11 +9,6 @@ import java.util.concurrent.*;
 
 public class WorkerRPCSender {
     private WorkerServiceGrpc.WorkerServiceStub[] stubs;
-    private ManagerServiceGrpc.ManagerServiceBlockingStub managerStub;
-
-    public void setManagerStub(ManagerServiceGrpc.ManagerServiceBlockingStub managerStub) {
-        this.managerStub = managerStub;
-    }
 
     final private WorkerMain worker;
 

@@ -18,6 +18,8 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
 
     @Override
     public void formCluster(StdRequest request, StreamObserver<StdResponse> responseObserver) {
+        worker.setId(request.getId());
+        this.id = request.getId();
         StdResponse res = RpcUtility.Response.newStdResponse(id);
         responseObserver.onNext(res);
         responseObserver.onCompleted();
@@ -40,18 +42,6 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
         worker.setClusterSize(addressBook.length);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
-    }
-
-    @Override
-    public void registerManager(StdRequest request, StreamObserver<StdResponse> responseObserver) {
-        worker.setId(request.getId());
-        this.id = request.getId();
-        String managerUri = new String(request.getContents().toByteArray());
-        Channel channel = ManagedChannelBuilder.forTarget(managerUri).usePlaintext().build();
-        worker.getRpcSender().setManagerStub(ManagerServiceGrpc.newBlockingStub(channel));
-        responseObserver.onNext(RpcUtility.Response.newStdResponse(id));
-        responseObserver.onCompleted();
-        System.out.println("registered manager at " + managerUri);
     }
 
     @Override

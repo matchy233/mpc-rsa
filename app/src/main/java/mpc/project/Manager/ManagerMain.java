@@ -2,18 +2,13 @@ package mpc.project.Manager;
 
 import io.grpc.*;
 
-import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Time;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import mpc.project.StdRequest;
 import mpc.project.WorkerServiceGrpc;
@@ -22,7 +17,6 @@ import mpc.project.util.Pair;
 import mpc.project.util.RSA;
 import mpc.project.util.RpcUtility;
 import org.apache.commons.lang.time.DurationFormatUtils;
-import org.checkerframework.checker.units.qual.K;
 
 public class ManagerMain {
     final int clusterMaxSize = 48;
@@ -35,9 +29,8 @@ public class ManagerMain {
     final private int portNum;
     private int id;
     private BigInteger randomPrime;
-    private ArrayList<WorkerServiceGrpc.WorkerServiceStub> stubs;
-    private ArrayList<String> addressBook;
-    private String selfAddress;
+    final private boolean interactMode;
+    private boolean initializedAddressBook = false;
     final private ManagerRPCSender rpcSender = new ManagerRPCSender(this);
 
     public ManagerRPCSender getRpcSender() {
@@ -50,40 +43,40 @@ public class ManagerMain {
         return dataReceiver;
     }
 
-    private Key key = new Key();
+    final private Key key = new Key();
 
     public int getClusterSize() {
         return clusterSize;
     }
 
-    private boolean addClusterNode(String target, int workerId) {
-        System.out.println("verifying validity of " + target);
+    public void dummyLogging(String log){
+        if(interactMode){
+            System.out.println(log);
+        }
+    }
+
+    private boolean addClusterNode(String target, int workerId, List<WorkerServiceGrpc.WorkerServiceStub> stubs) {
+        dummyLogging("verifying validity of " + target);
         Channel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
         WorkerServiceGrpc.WorkerServiceBlockingStub testStub = WorkerServiceGrpc.newBlockingStub(channel);
         StdRequest formClusterRequest = RpcUtility.Request.newStdRequest(workerId, randomPrime);
-        StdRequest registerManagerRequest = RpcUtility.Request.newStdRequest(workerId, selfAddress);
         try {
-            testStub.registerManager(registerManagerRequest);
             testStub.formCluster(formClusterRequest);
         } catch (StatusRuntimeException e) {
-            System.out.println("Failed to add into cluster: " + e.getMessage());
+            dummyLogging("Failed to add into cluster: " + e.getMessage());
             return false;
         }
         stubs.add(WorkerServiceGrpc.newStub(channel));
-        addressBook.add(target);
-        System.out.println(target + " is registered successfully");
+        dummyLogging(target + " is registered successfully");
         return true;
     }
 
-    private void formCluster() {
+    private String[] formClusterInteractive() {
         Scanner input = new Scanner(System.in);
-        System.out.println("please enter the address you want workers to use to connect to you");
-        // will not check validity, be careful
-        selfAddress = input.nextLine();
         System.out.println("please enter the address:port of all workers");
         System.out.println("one in each line, \"end\" marks the end");
-        stubs = new ArrayList<WorkerServiceGrpc.WorkerServiceStub>();
-        addressBook = new ArrayList<String>();
+        List<WorkerServiceGrpc.WorkerServiceStub> stubs = new ArrayList<>();
+        ArrayList<String> addressBook = new ArrayList<>();
         for (int i = 1; i <= clusterMaxSize; i++) {
             String inLine = input.nextLine();
             if (inLine.equals("end")) {
@@ -97,17 +90,34 @@ public class ManagerMain {
                     continue;
                 }
             }
-            if (!addClusterNode(inLine, i)) {
+            if (!addClusterNode(inLine, i, stubs)) {
                 i--;
+            }else{
+                addressBook.add(inLine);
             }
         }
-        clusterSize = addressBook.size();
+        clusterSize = stubs.size();
+        WorkerServiceGrpc.WorkerServiceStub[] stubsArr = new WorkerServiceGrpc.WorkerServiceStub[stubs.size()];
+        stubs.toArray(stubsArr);
+        rpcSender.setStubs(stubsArr);
+        return addressBook.toArray(new String[0]);
+    }
+
+    private void formCluster(String[] workerTargets){
+        List<WorkerServiceGrpc.WorkerServiceStub> stubs = new ArrayList<>();
+        int id = 1;
+        for(String workerTarget : workerTargets){
+            if(addClusterNode(workerTarget, id, stubs)){
+                id++;
+            }
+        }
+        clusterSize = stubs.size();
         WorkerServiceGrpc.WorkerServiceStub[] stubsArr = new WorkerServiceGrpc.WorkerServiceStub[stubs.size()];
         stubs.toArray(stubsArr);
         rpcSender.setStubs(stubsArr);
     }
 
-    private boolean formNetwork() {
+    private boolean formNetwork(String[] addressBook) {
         StringBuilder midStringBuilder = new StringBuilder();
         for (String target : addressBook) {
             midStringBuilder.append(target).append(";");
@@ -117,22 +127,29 @@ public class ManagerMain {
             rpcSender.sendFormNetworkRequest(id, midString);
         }
         dataReceiver.waitNetworkForming();
-        System.out.println("Network formation successfully");
+        dummyLogging("Network formation successful");
         return true;
     }
 
-    public ManagerMain(int portNum, int keyBitLength, boolean parallelGeneration) {
+    public ManagerMain(int portNum, int keyBitLength, boolean parallelGeneration,
+                       boolean interactMode, String[] addressBook) {
         this.portNum = portNum;
         this.rnd = new Random();
         this.keyBitLength = keyBitLength;
         this.parallelGeneration = parallelGeneration;
+        this.interactMode = interactMode;
         // Fixme: hard codding 3 * keyBitLength might be a bad idea for large bit length, maybe need to look into this
         this.randomPrime = BigInteger.probablePrime(3 * keyBitLength / 2, rnd);
+        if(addressBook != null && addressBook.length>0){
+            initializedAddressBook = true;
+            formCluster(addressBook);
+            formNetwork(addressBook);
+            generatePrivateKey();
+        }
         try {
             this.server = ServerBuilder.forPort(portNum)
                     .addService(new ManagerRPCReceiverService())
                     .build().start();
-            System.out.println("Manager server started");
         } catch (Exception e) {
             System.out.println(e.getMessage());
             System.exit(-2);
@@ -140,7 +157,6 @@ public class ManagerMain {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                System.out.println("Shutting down RPC server");
                 if (server != null) {
                     rpcSender.broadcastShutDownWorkerRequest("Manager exits");
                     server.shutdownNow();
@@ -159,27 +175,20 @@ public class ManagerMain {
         Pair<BigInteger, Long> modulusWorkflowPair = dataReceiver.waitModulusGeneration();
         BigInteger resultModulus = modulusWorkflowPair.first;
         Long resultWorkflowID = modulusWorkflowPair.second;
-        System.out.println(
-                "finished modulus generation, modulus: " + resultModulus + ", workflow id: " + resultWorkflowID
-        );
         Instant end = Instant.now();
         long durationMillis = Duration.between(start, end).toMillis();
         String timeString = DurationFormatUtils.formatDuration(durationMillis, "HH:mm:ss.SSS");
-        System.out.println("generation time consumption: " + timeString);
+        dummyLogging("generation time consumption: " + timeString);
         for (int id = 1; id <= clusterSize; id++) {
             rpcSender.sendAbortModulusGenerationRequest(id);
         }
-        this.key = new Key();
         key.setN(resultModulus);
-        try {
-            System.out.println(key.toPKCS1PublicString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        dummyLogging(key.toPKCS1PublicString());
         return resultWorkflowID;
     }
 
-    private void generatePrivateKey(long workflowID) {
+    private void generatePrivateKey() {
+        long workflowID = validModulusGeneration();
         for (int id = 1; id <= clusterSize; id++) {
             rpcSender.sendGeneratePrivateKeyRequest(id, workflowID);
         }
@@ -195,31 +204,86 @@ public class ManagerMain {
         return decryptionShadows;
     }
 
-    public void run() {
-        formCluster();
-        formNetwork();
-        long workflowID = validModulusGeneration();
-        generatePrivateKey(workflowID);
+    private void interact(){
         Scanner scanner = new Scanner(System.in);
-        while (true) {
-            String s = scanner.nextLine().trim();
-            if (s.equals("quit")) {
-                break;
+        while(true){
+            System.out.println("\nEnter command (type \"help\" for help): ");
+            String string = scanner.nextLine();
+            String[] args = string.split(" ");
+            switch (args[0]) {
+                case "help":{
+                    String helpMsg = "Supported operations: \n" +
+                            "help, regenerate, loop_generate, print_key, trial_decrypt, decrypt, quit\n\n" +
+                            "help: show this help message\n" +
+                            "regenerate: regenerate the key pairs\n" +
+                            "loop_generate: generate key pairs by n times, mainly for performance testing\n" +
+                            "print_key: print the current public key\n" +
+                            "trial_decrypt: enter a string, encrypt by the current public key and decrypt it to show" +
+                                    "the correctness\n" +
+                            "decrypt: enter a string encrypted by the public key and decrypt it\n" +
+                            "quit: quit application and shut down the cluster";
+                    System.out.println(helpMsg);
+                    break;
+                }
+                case "regenerate":{
+                    generatePrivateKey();
+                    break;
+                }
+                case "loop_generate":{
+                    try {
+                        int loopTurns = Integer.parseInt(args[1]);
+                        for (int i = 0; i < loopTurns; i++) {
+                            generatePrivateKey();
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println("not valid loop turns");
+                    } catch (ArrayIndexOutOfBoundsException e) {
+                        System.out.println("usage: " + args[0] + " {loop turns}");
+                    }
+                    break;
+                }
+                case "print_key":{
+                    System.out.println(this.key.toPKCS1PublicString());
+                    break;
+                }
+                case "trial_decrypt": {
+                    System.out.println("Enter the string you want to do trial decryption with, end with new line");
+                    String message = scanner.nextLine();
+                    String encryptedMessage = RSA.encrypt(message, key);
+                    System.out.println("Encrypted String: " + encryptedMessage);
+                    String[] distributedDecryptionResults = decrypt(encryptedMessage);
+                    String decryptedMessage = RSA.combineDecryptionResult(distributedDecryptionResults, key);
+                    System.out.println("Decrypted string: " + decryptedMessage);
+                    break;
+                }
+                case "decrypt": {
+                    System.out.println("Enter the string encrypted by my public key:");
+                    String encryptedMessage = scanner.nextLine();
+                    String[] distributedDecryptionResults = decrypt(encryptedMessage);
+                    String decryptedMessage = RSA.combineDecryptionResult(distributedDecryptionResults, key);
+                    System.out.println("Decrypted string: " + decryptedMessage);
+                    break;
+                }
+                case "quit":{
+                    System.out.println("Good bye");
+                    System.exit(0);
+                }
+                default:{
+                    System.out.println("Unsupported operation");
+                    break;
+                }
             }
-            if (s.equals("regenerate")) {
-                workflowID = validModulusGeneration();
-                generatePrivateKey(workflowID);
-                continue;
-            }
-            String encryptedString = RSA.encrypt(s, key);
-            System.out.println("Encrypted String: " + encryptedString);
-            String[] distributedDecryptionResults = decrypt(encryptedString);
-            String decryptedString = RSA.combineDecryptionResult(distributedDecryptionResults, key);
-            System.out.println("Decrypted string: " + decryptedString);
-            System.out.println(
-                    "Decryption " +
-                            (decryptedString.equals(s) ? "successes!" : "fails!"));
         }
-        System.exit(0);
+    }
+
+    public void runInteractive() {
+        if(interactMode){
+            if(!initializedAddressBook){
+                String[] addressBook = formClusterInteractive();
+                formNetwork(addressBook);
+                generatePrivateKey();
+            }
+            interact();
+        }
     }
 }

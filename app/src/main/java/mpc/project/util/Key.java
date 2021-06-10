@@ -52,14 +52,20 @@ public class Key {
      *
      * @return : the formatted public key
      */
-    public String toPKCS1PublicString() throws IOException {
+    public String toPKCS1PublicString(){
         ASN1Integer asn1N = new ASN1Integer(N);
         ASN1Integer asn1E = new ASN1Integer(e);
         ByteArrayOutputStream derOutputStream = new ByteArrayOutputStream();
-        DERSequenceGenerator derSequenceGenerator = new DERSequenceGenerator(derOutputStream);
-        derSequenceGenerator.addObject(asn1N);
-        derSequenceGenerator.addObject(asn1E);
-        derSequenceGenerator.close();
+        DERSequenceGenerator derSequenceGenerator = null;
+        try {
+            derSequenceGenerator = new DERSequenceGenerator(derOutputStream);
+            derSequenceGenerator.addObject(asn1N);
+            derSequenceGenerator.addObject(asn1E);
+            derSequenceGenerator.close();
+        } catch (IOException ioException) {
+            ioException.printStackTrace();
+            return "";
+        }
         byte[] content = derOutputStream.toByteArray();
         PemObject pemObject = new PemObject("RSA PUBLIC KEY", content);
         StringWriter stringWriter = new StringWriter();
