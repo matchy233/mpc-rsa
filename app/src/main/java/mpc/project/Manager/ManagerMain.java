@@ -29,7 +29,7 @@ public class ManagerMain {
     final private int portNum;
     private int id;
     private BigInteger randomPrime;
-    final private boolean interactMode;
+    private boolean interactMode;
     private boolean initializedAddressBook = false;
     final private ManagerRPCSender rpcSender = new ManagerRPCSender(this);
 
@@ -146,14 +146,14 @@ public class ManagerMain {
             formNetwork(addressBook);
             generatePrivateKey();
         }
-        try {
-            this.server = ServerBuilder.forPort(portNum)
-                    .addService(new ManagerRPCReceiverService())
-                    .build().start();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            System.exit(-2);
-        }
+//        try {
+//            this.server = ServerBuilder.forPort(portNum)
+//                    .addService(new ManagerRPCReceiverService())
+//                    .build().start();
+//        } catch (Exception e) {
+//            System.out.println(e.getMessage());
+//            System.exit(-2);
+//        }
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -277,13 +277,12 @@ public class ManagerMain {
     }
 
     public void runInteractive() {
-        if(interactMode){
-            if(!initializedAddressBook){
-                String[] addressBook = formClusterInteractive();
-                formNetwork(addressBook);
-                generatePrivateKey();
-            }
-            interact();
+        interactMode = true;
+        if(!initializedAddressBook){
+            String[] addressBook = formClusterInteractive();
+            formNetwork(addressBook);
+            generatePrivateKey();
         }
+        interact();
     }
 }
