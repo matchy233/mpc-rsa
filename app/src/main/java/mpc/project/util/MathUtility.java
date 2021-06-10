@@ -104,24 +104,24 @@ public class MathUtility {
                 .mod(modulo);
     }
 
-    static public <T extends Number> BigInteger[] generatePrimeNumberTable(T upperBound) {
-        ArrayList<BigInteger> primeNumberTable = new ArrayList<>();
-        primeNumberTable.add(BigInteger.TWO);
-        BigInteger i = BigInteger.valueOf(3);
-        while (i.compareTo(new BigInteger(String.valueOf(upperBound))) <= 0) {
-            boolean isPrime = true;
-            for (BigInteger j : primeNumberTable) {
-                if (i.mod(j).equals(BigInteger.ZERO)) {
-                    isPrime = false;
+    static public BigInteger[] generatePrimeNumberTable(BigInteger upperBound) {
+        ArrayList<BigInteger> primeTable = new ArrayList<>();
+        primeTable.add(BigInteger.TWO);
+        BigInteger primeTableProduct = BigInteger.valueOf(2);
+        BigInteger nextPrime = BigInteger.valueOf(3);
+        boolean reachUpperBound = false;
+        while(!reachUpperBound){
+            primeTable.add(nextPrime);
+            primeTableProduct = primeTableProduct.multiply(nextPrime);
+            do{
+                nextPrime = nextPrime.add(BigInteger.TWO);
+                if(nextPrime.compareTo(upperBound) >= 0){
+                    reachUpperBound = true;
                     break;
                 }
-            }
-            if (isPrime) {
-                primeNumberTable.add(i);
-            }
-            i = i.add(BigInteger.TWO);
+            }while(!nextPrime.gcd(primeTableProduct).equals(BigInteger.ONE));
         }
-        return primeNumberTable.toArray(new BigInteger[0]);
+        return primeTable.toArray(new BigInteger[0]);
     }
 
     static public <T extends Number> BigInteger[] generatePrimeNumberTable(T upperBound, T[] primeBefore) {
@@ -152,6 +152,18 @@ public class MathUtility {
             i = i.add(BigInteger.TWO);
         }
         return primeAfter.toArray(new BigInteger[0]);
+    }
+
+    static public BigInteger nextPrimeNumber(BigInteger[] primeTable){
+        if(primeTable == null || primeTable.length < 2){
+            primeTable = new BigInteger[]{BigInteger.TWO, BigInteger.valueOf(3)};
+        }
+        BigInteger primeTableProduct = arrayProduct(primeTable);
+        BigInteger result = primeTable[primeTable.length-1];
+        do {
+            result = result.add(BigInteger.TWO);
+        } while (!result.gcd(primeTableProduct).equals(BigInteger.ONE));
+        return result;
     }
 
     static public BigInteger[] generateRandomArraySumToN(int size, BigInteger N, Random rnd) {
