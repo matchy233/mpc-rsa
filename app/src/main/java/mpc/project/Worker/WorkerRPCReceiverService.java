@@ -48,15 +48,6 @@ public class WorkerRPCReceiverService extends WorkerServiceGrpc.WorkerServiceImp
     public void shutDownWorker(StdRequest request, StreamObserver<StdResponse> responseObserver){
         String shutDownMessage = new String((request.getContents().toByteArray()));
         worker.dummyLog("Shutting down worker by shutDown RPC request, message: " + shutDownMessage);
-        // delay for both-worker-manager mode to finish shutDown signal sending
-        new Thread(()->{
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            System.exit(0);
-        }).start();
     }
 
     @Override
