@@ -72,6 +72,7 @@ public class WorkerDataReceiver {
     }
 
     public void countModulus(long workflowID) {
+        emptyCheckModulus(workflowID);
         modulusReadyFlagMap.get(workflowID).release();
     }
 
@@ -217,6 +218,7 @@ public class WorkerDataReceiver {
     }
 
     public void countShadow(long workflowID) {
+        emptyCheckVerificationFactor(workflowID);
         shadowReadyFlagMap.get(workflowID).release();
     }
 
@@ -257,6 +259,7 @@ public class WorkerDataReceiver {
     }
 
     public void countVerificationFactor(long workflowID) {
+        emptyCheckVerificationFactor(workflowID);
         verificationFactorReadyFlagMap.get(workflowID).release();
     }
 
