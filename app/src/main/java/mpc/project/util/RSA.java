@@ -3,30 +3,9 @@ package mpc.project.util;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Random;
 
 public class RSA {
-    /*
-     * blockSize : encrypt message block by block which sizes blockSize
-     * blockSize * 8 should be under log_2(N). If not, can't restore original value by modular operation.
-     * paddingBlockSize : block by encryption result should pad by this
-     * paddingBlockSize * 8 should be over log_2(N). If not, some bits can be loss.
-     */
-    /*
-     * blockSize * 8 should be under log_2(N)
-     **/
-//    static private int blockSize = 1;
-    /*
-     * endBlockSize * 8 should be over log_2(N)
-     **/
-//    static private int paddingBlockSize = 2;
-
-
-//    static public void init(BigInteger N) {
-//        int n = N.bitLength();
-//        RSA.blockSize = n / 8;
-//        RSA.paddingBlockSize = n / 8 + 1;
-//    }
-
     /**
      * Method to encrypt given message
      *
@@ -40,12 +19,14 @@ public class RSA {
 
         byte[] byteString = string.getBytes();
         int bitLen = key.getN().bitLength();
-        int blockSize = bitLen / 8;
-        int paddingBlockSize = bitLen / 8 + 1;
+        int blockSize = ((int) Math.ceil(bitLen / 8)) - 11; // 11 bytes for PKCS1-v1_5 Padding
 
         int numOfBlock = (int) Math.ceil((double) byteString.length / (double) blockSize);
-        int resultSize = paddingBlockSize * numOfBlock;
+        int resultSize = bitLen * numOfBlock;
         byte[] result = new byte[resultSize];
+
+        int psLen = 8;
+        byte[] ps = new byte[psLen];
 
         // block-by encoding
         for (int k = 0; k < numOfBlock; ++k) {
@@ -56,7 +37,17 @@ public class RSA {
             // RSA calculation
             b = b.modPow(key.getE(), key.getN());
             byte[] bByte = b.toByteArray();
-            int pos = (k + 1) * paddingBlockSize - bByte.length;
+
+            int start = k * bitLen;
+            new Random().nextBytes(ps);
+
+            // PKCS1-v1_5 Padding
+            result[start] = 0;
+            result[start + 1] = 2;
+            System.arraycopy(ps, 0, result, start + 2, psLen);
+            result[start + psLen + 2] = 0;
+
+            int pos = (k + 1) * bitLen - bByte.length;
             System.arraycopy(bByte, 0, result, pos, bByte.length);
         }
 
@@ -78,17 +69,27 @@ public class RSA {
         byte[] byteString = decoder.decode(string.getBytes());
         byte[] result = new byte[byteString.length];
         int bitLen = key.getN().bitLength();
-        int paddingBlockSize = bitLen / 8 + 1;
+
+        int psLen = 8;
+        byte[] ps = new byte[psLen];
 
         // block-by decoding
-        for (int i = 0; i < byteString.length; i += paddingBlockSize) {
-            byte[] block = Arrays.copyOfRange(byteString, i, i + paddingBlockSize);
+        for (int i = 0; i < byteString.length; i += bitLen) {
+            byte[] block = Arrays.copyOfRange(byteString, i + 11, i + bitLen);
             BigInteger b = new BigInteger(block);
 
             // RSA calculation
             b = b.modPow(key.getD(), key.getN());
             byte[] bByte = b.toByteArray();
-            int offset = paddingBlockSize - bByte.length;
+
+            // PKCS1-v1_5 Padding
+            new Random().nextBytes(ps);
+            result[i] = 0;
+            result[i + 1] = 2;
+            System.arraycopy(ps, 0, result, i + 2, psLen);
+            result[i + psLen + 2] = 0;
+
+            int offset = bitLen - bByte.length;
             System.arraycopy(bByte, 0, result, i + offset, bByte.length);
         }
 
@@ -109,7 +110,6 @@ public class RSA {
 
         byte[][] byteStrings = new byte[strings.length][];
         int bitLen = key.getN().bitLength();
-        int paddingBlockSize = bitLen / 8 + 1;
 
         for (int i = 0; i < strings.length; ++i) {
             byteStrings[i] = decoder.decode(strings[i].getBytes());
@@ -117,11 +117,11 @@ public class RSA {
 
         StringBuilder result = new StringBuilder();
         int len = byteStrings[0].length;
-        for (int i = 0; i < len; i += paddingBlockSize) {
+        for (int i = 0; i < len; i += bitLen) {
             BigInteger b = BigInteger.valueOf(1);
 
             for (int j = 0; j < strings.length; ++j) {
-                byte[] block = Arrays.copyOfRange(byteStrings[j], i, Math.min(len, i + paddingBlockSize));
+                byte[] block = Arrays.copyOfRange(byteStrings[j], i + 11, i + bitLen);
                 BigInteger b_j = new BigInteger(block);
 
                 // Distributed decryption
