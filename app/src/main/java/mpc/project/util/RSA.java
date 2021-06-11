@@ -1,6 +1,7 @@
 package mpc.project.util;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
@@ -17,12 +18,14 @@ public class RSA {
         // Encoder for Base64 encoding
         Base64.Encoder encoder = Base64.getEncoder();
 
-        byte[] byteString = string.getBytes();
+        byte[] byteString = string.getBytes(StandardCharsets.UTF_8);
         int bitLen = key.getN().bitLength();
-        int blockSize = ((int) Math.ceil(bitLen / 8)) - 11; // 11 bytes for PKCS1-v1_5 Padding
+        int blockByte = (int) Math.ceil((double) bitLen / (double) 8) + 1;
+        int blockSize = blockByte - 11; // 11 bytes for PKCS1-v1_5 Padding
+        assert(blockSize > 0);
 
         int numOfBlock = (int) Math.ceil((double) byteString.length / (double) blockSize);
-        int resultSize = bitLen * numOfBlock;
+        int resultSize = blockByte * numOfBlock;
         byte[] result = new byte[resultSize];
 
         int psLen = 8;
@@ -31,23 +34,24 @@ public class RSA {
         // block-by encoding
         for (int k = 0; k < numOfBlock; ++k) {
             int blockPos = k * blockSize;
-            byte[] block = Arrays.copyOfRange(byteString, blockPos, Math.min(byteString.length, blockPos + blockSize));
+            int blockLen = Math.min(byteString.length - blockPos, blockSize);
+            byte[] block = new byte[blockLen + 11];
+            System.arraycopy(byteString, blockPos, block, 11, blockLen);
+
+            // PKCS1-v1_5 Padding
+            block[0] = 0;
+            block[1] = 2;
+            new Random().nextBytes(ps);
+            System.arraycopy(ps, 0, block, 2, psLen);
+            block[psLen + 2] = 0;
+
             BigInteger b = new BigInteger(block);
 
             // RSA calculation
             b = b.modPow(key.getE(), key.getN());
             byte[] bByte = b.toByteArray();
 
-            int start = k * bitLen;
-            new Random().nextBytes(ps);
-
-            // PKCS1-v1_5 Padding
-            result[start] = 0;
-            result[start + 1] = 2;
-            System.arraycopy(ps, 0, result, start + 2, psLen);
-            result[start + psLen + 2] = 0;
-
-            int pos = (k + 1) * bitLen - bByte.length;
+            int pos = (k + 1) * blockByte - bByte.length;
             System.arraycopy(bByte, 0, result, pos, bByte.length);
         }
 
@@ -69,27 +73,18 @@ public class RSA {
         byte[] byteString = decoder.decode(string.getBytes());
         byte[] result = new byte[byteString.length];
         int bitLen = key.getN().bitLength();
-
-        int psLen = 8;
-        byte[] ps = new byte[psLen];
+        int blockByte = (int) Math.ceil((double) bitLen / (double) 8) + 1;
 
         // block-by decoding
-        for (int i = 0; i < byteString.length; i += bitLen) {
-            byte[] block = Arrays.copyOfRange(byteString, i + 11, i + bitLen);
+        for (int i = 0; i < byteString.length; i += blockByte) {
+            byte[] block = Arrays.copyOfRange(byteString, i, i + blockByte);
             BigInteger b = new BigInteger(block);
 
             // RSA calculation
             b = b.modPow(key.getD(), key.getN());
             byte[] bByte = b.toByteArray();
 
-            // PKCS1-v1_5 Padding
-            new Random().nextBytes(ps);
-            result[i] = 0;
-            result[i + 1] = 2;
-            System.arraycopy(ps, 0, result, i + 2, psLen);
-            result[i + psLen + 2] = 0;
-
-            int offset = bitLen - bByte.length;
+            int offset = blockByte - bByte.length;
             System.arraycopy(bByte, 0, result, i + offset, bByte.length);
         }
 
@@ -110,18 +105,19 @@ public class RSA {
 
         byte[][] byteStrings = new byte[strings.length][];
         int bitLen = key.getN().bitLength();
+        int blockByte = (int) Math.ceil((double) bitLen / (double) 8) + 1;
 
         for (int i = 0; i < strings.length; ++i) {
             byteStrings[i] = decoder.decode(strings[i].getBytes());
         }
 
-        StringBuilder result = new StringBuilder();
+        String result = "";
         int len = byteStrings[0].length;
-        for (int i = 0; i < len; i += bitLen) {
+        for (int i = 0; i < len; i += blockByte) {
             BigInteger b = BigInteger.valueOf(1);
 
             for (int j = 0; j < strings.length; ++j) {
-                byte[] block = Arrays.copyOfRange(byteStrings[j], i + 11, i + bitLen);
+                byte[] block = Arrays.copyOfRange(byteStrings[j], i, i + blockByte);
                 BigInteger b_j = new BigInteger(block);
 
                 // Distributed decryption
@@ -129,8 +125,9 @@ public class RSA {
             }
 
             byte[] bByte = b.toByteArray();
-            result.append(new String(bByte));
+            byte[] M = Arrays.copyOfRange(bByte, 10, bByte.length); // first byte is zero, so M is start from 10.
+            result += new String(M, StandardCharsets.UTF_8);
         }
-        return result.toString();
+        return result;
     }
 }
