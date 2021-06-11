@@ -252,6 +252,9 @@ public class ManagerMain {
                     String encryptedMessage = RSA.encrypt(message, key);
                     System.out.println("Encrypted String: " + encryptedMessage);
                     String[] distributedDecryptionResults = decrypt(encryptedMessage);
+                    if(distributedDecryptionResults == null){
+                        continue;
+                    }
                     String decryptedMessage = RSA.combineDecryptionResult(distributedDecryptionResults, key);
                     System.out.println("Decrypted string: " + decryptedMessage);
                     break;
@@ -260,6 +263,9 @@ public class ManagerMain {
                     System.out.println("Enter the string encrypted by my public key:");
                     String encryptedMessage = scanner.nextLine();
                     String[] distributedDecryptionResults = decrypt(encryptedMessage);
+                    if(distributedDecryptionResults == null){
+                        continue;
+                    }
                     String decryptedMessage = RSA.combineDecryptionResult(distributedDecryptionResults, key);
                     System.out.println("Decrypted string: " + decryptedMessage);
                     break;
