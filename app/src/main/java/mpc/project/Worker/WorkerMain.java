@@ -298,7 +298,7 @@ public class WorkerMain {
         BigInteger p = pair.first;
         BigInteger q = pair.second;
         BigInteger modulus = modulusMap.get(workflowID);
-        cleanupModulusGenerationMap();
+//        cleanupModulusGenerationMap();
 
         key.setN(modulus);
 
