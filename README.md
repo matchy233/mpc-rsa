@@ -45,8 +45,8 @@ The following 2 commands set up 2 containers. One is named `manager` running in 
 These containers are then accessible through `<local_machine_IP>:<published_port>` from other machines.
 
 ```bash
-$ docker run --rm --name manager mpc-project_manager -p 8080:8350
-$ docker run --rm --name worker1 mpc-project_worker -p 8080:8353
+$ docker run --rm --it --name manager mpc-project_manager -p 8350:8080
+$ docker run --rm --itd --name worker1 mpc-project_worker -p 8353:8080
 ```
 
 ### Build from source
