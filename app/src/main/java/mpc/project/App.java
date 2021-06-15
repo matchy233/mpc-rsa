@@ -66,6 +66,7 @@ public class App {
                     } else{
                         throw new UnsupportedArgException("unsupported mode");
                     }
+                    i++;
                     break;
                 case "--port":
                 case "-p":
@@ -74,6 +75,7 @@ public class App {
                     } catch (NumberFormatException e) {
                         throw new UnsupportedArgException("unsupported port number");
                     }
+                    i++;
                     break;
                 case "--keyBitLength":
                 case "-k":
@@ -82,6 +84,7 @@ public class App {
                     } catch (NumberFormatException e) {
                         throw new UnsupportedArgException("unsupported bit length number");
                     }
+                    i++;
                     break;
                 case "--parallel":
                 case "-P":{
@@ -102,12 +105,17 @@ public class App {
                     } catch (FileNotFoundException e) {
                         throw new UnsupportedArgException("cannot load cluster config file");
                     }
+                    i++;
                     break;
                 }
                 case "--verbose":
                 case "-v":{
                     verboseMode = true;
                     break;
+                }
+                default:{
+                    printHelpMsg();
+                    System.exit(0);
                 }
             }
         }
